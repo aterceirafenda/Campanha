@@ -20,6 +20,19 @@
   ul { list-style: none; padding: 0; margin: 1rem 0 0; text-align: left; }
   li { padding: .6rem .8rem; border: 1px solid var(--bd); border-radius: 8px; margin-bottom: .4rem; }
   li small { display: block; opacity: .7; }
+  main.wide { max-width: 32rem; }
+  svg { width: 100%; height: auto; margin-top: .5rem; }
+  .ln { stroke: var(--bd); stroke-width: 1.5; }
+  .c { fill: var(--card); stroke: var(--bd); stroke-width: 1.2; }
+  .c.m { fill: var(--ac); stroke: var(--ac); }
+  .c.a { fill: var(--bg); stroke: var(--ac); stroke-width: 2.2; cursor: pointer; animation: pl 1.2s infinite; }
+  @keyframes pl { 50% { opacity: .45; } }
+  .h { fill: var(--card); stroke: var(--fg); stroke-width: 1.5; }
+  .h.u { fill: var(--ac); }
+  .lb { font-size: 9px; fill: var(--fg); text-anchor: middle; stroke: var(--card); stroke-width: 3; paint-order: stroke; }
+  .hr { font-size: 9px; text-anchor: middle; fill: #c0392b; pointer-events: none; }
+  #info { text-align: left; font-size: .9rem; }
+  li.click { cursor: pointer; }
   #msg { color: #b3412e; min-height: 1.2em; font-size: .9rem; }
 </style>
 </head>
@@ -44,6 +57,14 @@
     <button class="sec" id="logout">Sair</button>
   </section>
 
+  <section id="board" class="hide">
+    <h2 id="bt" style="margin:0"></h2>
+    <svg id="svg" viewBox="0 0 360 940"></svg>
+    <div id="info"></div>
+    <button class="sec" id="undo">Desfazer último</button>
+    <button class="sec" id="back">Voltar</button>
+  </section>
+
   <p id="msg"></p>
 </main>
 
@@ -54,28 +75,100 @@
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const $ = id => document.getElementById(id);
 
+  let uid = null, camps = [], cur = null, order = [];
+  const SEGS = [["Andarilho","Caixa 1",2],["Caixa 1","Caixa 2",5],["Caixa 2","Circo",4],["Caixa 2","Armazém",4],["Circo","Cervo",6],["Circo","Sinaleiro",6],["Cervo","Castelo",8],["Castelo","Fazenda",10],["Fazenda","Nuvens",10],["Armazém","Túnel de Cereal",6],["Armazém","Sinaleiro",6],["Túnel de Cereal","Túnel de Vila",8],["Túnel de Vila","Túnel de Floresta",10],["Túnel de Floresta","Nuvens",10],["Sinaleiro","Pastora",8],["Pastora","Colina",10],["Colina","Nuvens",10]];
+  const HEART = new Set(["Cervo>Castelo","Túnel de Cereal>Túnel de Vila","Sinaleiro>Pastora"]);
+  const POS = {"Andarilho":[180,30],"Caixa 1":[180,110],"Caixa 2":[180,220],"Circo":[80,330],"Armazém":[280,330],"Cervo":[35,450],"Sinaleiro":[180,450],"Túnel de Cereal":[325,450],"Castelo":[35,600],"Pastora":[180,600],"Túnel de Vila":[325,600],"Fazenda":[35,750],"Colina":[180,750],"Túnel de Floresta":[325,750],"Nuvens":[180,900]};
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (t, at, parent, txt) => { const e = document.createElementNS(NS, t); for (const k in at) e.setAttribute(k, at[k]); if (txt) e.textContent = txt; parent.appendChild(e); return e; };
+  const cid = (f, t, i) => f + ">" + t + ":" + i;
+  const nomeH = h => h.startsWith("Caixa") ? h : "Carta de Conquista " + h;
+
+  function show(w) {
+    $("out").classList.toggle("hide", w !== "out");
+    $("in").classList.toggle("hide", w !== "in");
+    $("board").classList.toggle("hide", w !== "board");
+    document.querySelector("main").classList.toggle("wide", w === "board");
+  }
+
   async function render(session) {
-    $("out").classList.toggle("hide", !!session);
-    $("in").classList.toggle("hide", !session);
-    if (!session) return;
+    if (!session) { uid = null; cur = null; show("out"); return; }
     const u = session.user;
+    uid = u.id;
     $("nome").textContent = (u.user_metadata && (u.user_metadata.name || u.user_metadata.full_name)) || u.email;
+    if (cur) return;
+    show("in");
     await carregar();
   }
 
   async function carregar() {
-    const { data, error } = await sb.from("campaigns").select("id,name,players,owner_id").order("created_at", { ascending: false });
+    const { data, error } = await sb.from("campaigns").select("id,name,players,owner_id,state").order("created_at", { ascending: false });
     if (error) { $("camps").textContent = ""; $("msg").textContent = "Erro ao ler campanhas: " + error.message; return; }
-    $("camps").textContent = data.length ? "" : "Nenhuma campanha ainda.";
+    camps = data;
+    $("camps").textContent = data.length ? "Toque numa campanha pra abrir o tabuleiro." : "Nenhuma campanha ainda.";
     const ul = $("lista");
     ul.innerHTML = "";
     data.forEach(c => {
       const li = document.createElement("li");
+      li.className = "click";
       li.textContent = c.name;
       if (c.players) { const sm = document.createElement("small"); sm.textContent = c.players; li.appendChild(sm); }
+      li.onclick = () => abrir(c);
       ul.appendChild(li);
     });
   }
+
+  function abrir(c) {
+    cur = c;
+    order = (c.state && Array.isArray(c.state.marked)) ? c.state.marked.slice() : [];
+    $("bt").textContent = c.name;
+    $("msg").textContent = c.owner_id === uid ? "" : "Você é convidado: só visualiza.";
+    show("board");
+    draw();
+  }
+
+  function draw() {
+    const M = new Set(order);
+    const reached = h => h === "Andarilho" || SEGS.some(([f, t, n]) => t === h && M.has(cid(f, t, n - 1)));
+    const canEdit = cur.owner_id === uid;
+    const svg = $("svg");
+    svg.innerHTML = "";
+    SEGS.forEach(([f, t]) => el("line", { x1: POS[f][0], y1: POS[f][1], x2: POS[t][0], y2: POS[t][1], class: "ln" }, svg));
+    SEGS.forEach(([f, t, n]) => {
+      const heart = HEART.has(f + ">" + t);
+      for (let i = 0; i < n; i++) {
+        const k = (i + 1) / (n + 1);
+        const x = POS[f][0] + (POS[t][0] - POS[f][0]) * k, y = POS[f][1] + (POS[t][1] - POS[f][1]) * k;
+        const id = cid(f, t, i), m = M.has(id);
+        const av = !m && (i === 0 ? reached(f) : M.has(cid(f, t, i - 1)));
+        const c = el("circle", { cx: x, cy: y, r: 5.5, class: "c" + (m ? " m" : av ? " a" : "") }, svg);
+        if (av && canEdit) c.onclick = () => marcar(id);
+        if (heart && i === 3) el("text", { x: x, y: y + 3, class: "hr" }, svg, "♥");
+      }
+    });
+    Object.keys(POS).forEach(h => {
+      const [x, y] = POS[h], u = reached(h) && h !== "Andarilho";
+      const pts = [0, 1, 2, 3, 4, 5].map(k => { const a = Math.PI / 3 * k; return (x + 14 * Math.cos(a)).toFixed(1) + "," + (y + 14 * Math.sin(a)).toFixed(1); }).join(" ");
+      el("polygon", { points: pts, class: "h" + (u ? " u" : "") }, svg);
+      el("text", { x: x, y: y + 27, class: "lb" }, svg, h);
+    });
+    const hearts = order.filter(id => HEART.has(id.split(":")[0]) && id.endsWith(":3")).length;
+    const desb = Object.keys(POS).filter(h => h !== "Andarilho" && reached(h)).map(nomeH);
+    $("info").innerHTML = "";
+    const l1 = document.createElement("p"); l1.textContent = "Círculos: " + order.length + "/123 · Corações: " + hearts + "/3"; $("info").appendChild(l1);
+    const l2 = document.createElement("p"); l2.textContent = "Desbloqueados: " + (desb.length ? desb.join(", ") : "nada ainda"); $("info").appendChild(l2);
+    $("undo").classList.toggle("hide", !canEdit);
+  }
+
+  async function salvar(antes) {
+    const { error } = await sb.from("campaigns").update({ state: { marked: order } }).eq("id", cur.id);
+    if (error) { order = antes; $("msg").textContent = "Erro ao salvar: " + error.message; }
+    else { cur.state = { marked: order.slice() }; $("msg").textContent = ""; }
+    draw();
+  }
+  async function marcar(id) { const antes = order.slice(); order.push(id); draw(); await salvar(antes); }
+  $("undo").onclick = async () => { if (!order.length) return; const antes = order.slice(); order.pop(); draw(); await salvar(antes); };
+  $("back").onclick = async () => { cur = null; $("msg").textContent = ""; show("in"); await carregar(); };
 
   $("criar").onclick = async () => {
     $("msg").textContent = "";

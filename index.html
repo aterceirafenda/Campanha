@@ -65,6 +65,12 @@
     <h2 id="bt" style="margin:0"></h2>
     <div class="bd"><svg id="svg" viewBox="410 -15 590 825"></svg></div>
     <div id="info"></div>
+    <div class="form" id="rp">
+      <input id="pont" type="number" inputmode="numeric" min="0" placeholder="Pontuação da partida">
+      <p id="prev" style="margin:0"></p>
+      <button id="reg">Registrar partida</button>
+    </div>
+    <ul id="hist"></ul>
     <button class="sec" id="undo">Desfazer último</button>
     <button class="sec" id="back">Voltar</button>
   </section>
@@ -122,6 +128,9 @@
   const NS = "http://www.w3.org/2000/svg";
   const el = (t, at, parent, txt) => { const e = document.createElementNS(NS, t); for (const k in at) e.setAttribute(k, at[k]); if (txt) e.textContent = txt; parent.appendChild(e); return e; };
   const cid = (f, t, i) => f + ">" + t + ":" + i;
+  const TAB = [[400,"Imperatriz",15],[375,"Príncipe Herdeiro",15],[350,"Baronesa",15],[340,"Magnata",14],[330,"Conselheiro",14],[320,"Prefeito",13],[310,"Fabricante",13],[300,"Balonista",12],[290,"Diplomata",12],[280,"Médico",11],[270,"Astrônomo",11],[260,"Inventor",10],[250,"Arquiteto",10],[240,"Comerciante",9],[230,"Fotógrafo",9],[220,"Chefe de Estação",8],[210,"Chefe do Porto",8],[200,"Capitão",7],[190,"Mestre de Cerimônias",7],[180,"Engenheiro",6],[170,"Esposa de Fazendeiro",6],[160,"Guarda Florestal",5],[150,"Proprietária",5],[140,"Atriz",4],[130,"Vigia Noturno",4],[120,"Cocheiro",3],[110,"Pescadora",3],[100,"Jornaleiro",2],[0,"Vagabundo",1]];
+  const linha = pt => TAB.find(r => pt >= r[0]);
+  let plays = [];
   const nomeH = h => h.startsWith("Caixa") ? h : "Carta de Conquista " + h;
 
   function show(w) {
@@ -158,12 +167,17 @@
     });
   }
 
-  function abrir(c) {
-    cur = c;
+  async function abrir(c) {
+    cur = c; plays = [];
     order = (c.state && Array.isArray(c.state.marked)) ? c.state.marked.slice() : [];
     $("bt").textContent = c.name;
     $("msg").textContent = c.owner_id === uid ? "" : "Você é convidado: só visualiza.";
+    $("pont").value = ""; $("prev").textContent = "";
     show("board");
+    draw();
+    const { data, error } = await sb.from("plays").select("number,data").eq("campaign_id", c.id).order("number");
+    if (error) { $("msg").textContent = "Erro ao ler partidas: " + error.message; return; }
+    plays = data;
     draw();
   }
 
@@ -171,13 +185,14 @@
     const M = new Set(order);
     const reached = h => h === "Andarilho" || SEGS.some(([f, t, n]) => t === h && M.has(cid(f, t, n - 1)));
     const canEdit = cur.owner_id === uid;
+    const cred = plays.reduce((t, q) => t + ((q.data && q.data.circulos) || 0), 0) - order.length;
     const svg = $("svg");
     svg.innerHTML = "";
     SEGS.forEach(([f, t, n], si) => {
       const heart = HEART.has(f + ">" + t);
       for (let i = 0; i < n; i++) {
         const [x, y] = CP[si][i], id = cid(f, t, i), m = M.has(id);
-        const av = !m && (i === 0 ? reached(f) : M.has(cid(f, t, i - 1)));
+        const av = !m && cred > 0 && (i === 0 ? reached(f) : M.has(cid(f, t, i - 1)));
         const st = m ? " m" : av ? " a" : "";
         if (heart && i === 3) { el("circle", { cx: x, cy: y, r: 8, class: "heart" + st }, svg); el("text", { x: x, y: y + 4, class: "hx" }, svg, "♥"); }
         else el("circle", { cx: x, cy: y, r: 5, class: "dot" + st }, svg);
@@ -199,9 +214,13 @@
     const hearts = order.filter(id => HEART.has(id.split(":")[0]) && id.endsWith(":3")).length;
     const desb = Object.keys(POS).filter(h => h !== "Andarilho" && reached(h)).map(nomeH);
     $("info").innerHTML = "";
-    const l1 = document.createElement("p"); l1.textContent = "Círculos: " + order.length + "/123 · Corações: " + hearts + "/3"; $("info").appendChild(l1);
+    const l1 = document.createElement("p"); l1.textContent = "Disponíveis pra marcar: " + Math.max(cred, 0) + " · Marcados: " + order.length + "/123 · Corações: " + hearts + "/3"; $("info").appendChild(l1);
     const l2 = document.createElement("p"); l2.textContent = "Desbloqueados: " + (desb.length ? desb.join(", ") : "nada ainda"); $("info").appendChild(l2);
     $("undo").classList.toggle("hide", !canEdit);
+    $("rp").classList.toggle("hide", !canEdit);
+    if (canEdit && cred <= 0) { const l3 = document.createElement("p"); l3.textContent = plays.length ? "Sem círculos disponíveis. Registre uma nova partida." : "Registre uma partida pra ganhar círculos."; $("info").appendChild(l3); }
+    $("hist").innerHTML = "";
+    plays.forEach(q => { const li = document.createElement("li"); li.textContent = "Partida " + q.number + ": " + q.data.pontuacao + " pts, " + q.data.titulo + " (+" + q.data.circulos + ")"; $("hist").appendChild(li); });
   }
 
   async function salvar(antes) {
@@ -211,6 +230,21 @@
     draw();
   }
   async function marcar(id) { const antes = order.slice(); order.push(id); draw(); await salvar(antes); }
+  $("pont").oninput = () => {
+    const v = parseInt($("pont").value, 10);
+    $("prev").textContent = isNaN(v) || v < 0 ? "" : linha(v)[0] + " " + linha(v)[1] + ": " + linha(v)[2] + " círculo(s)";
+  };
+  $("reg").onclick = async () => {
+    const v = parseInt($("pont").value, 10);
+    if (isNaN(v) || v < 0) { $("msg").textContent = "Digite a pontuação (número)."; return; }
+    const r = linha(v), number = plays.length ? Math.max(...plays.map(q => q.number)) + 1 : 1;
+    const data = { pontuacao: v, linha: r[0], titulo: r[1], circulos: r[2] };
+    const { error } = await sb.from("plays").insert({ campaign_id: cur.id, number, data });
+    if (error) { $("msg").textContent = "Erro ao registrar: " + error.message; return; }
+    plays.push({ number, data });
+    $("pont").value = ""; $("prev").textContent = ""; $("msg").textContent = "";
+    draw();
+  };
   $("undo").onclick = async () => { if (!order.length) return; const antes = order.slice(); order.pop(); draw(); await salvar(antes); };
   $("back").onclick = async () => { cur = null; $("msg").textContent = ""; show("in"); await carregar(); };
 

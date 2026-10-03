@@ -37,6 +37,10 @@
   .lbl { font-size: 14px; font-weight: 700; fill: #2b2a26; text-anchor: middle; }
   #info { text-align: left; font-size: .9rem; }
   li.click { cursor: pointer; }
+  .g { display: grid; grid-template-columns: 1fr 1fr; gap: .3rem; }
+  .g li { margin: 0; padding: .4rem .5rem; font-size: .85rem; }
+  .g label { display: flex; gap: .4rem; align-items: center; }
+  h3 { text-align: left; margin: 1rem 0 .3rem; font-size: 1rem; }
   #msg { color: #b3412e; min-height: 1.2em; font-size: .9rem; }
 </style>
 </head>
@@ -71,6 +75,10 @@
       <button id="reg">Registrar partida</button>
     </div>
     <ul id="hist"></ul>
+    <h3>Suas Conquistas</h3>
+    <ul id="conq" class="g"></ul>
+    <h3>Caixas</h3>
+    <ul id="cx" class="g"></ul>
     <button class="sec" id="undo">Desfazer último</button>
     <button class="sec" id="back">Voltar</button>
   </section>
@@ -130,7 +138,7 @@
   const cid = (f, t, i) => f + ">" + t + ":" + i;
   const TAB = [[400,"Imperatriz",15],[375,"Príncipe Herdeiro",15],[350,"Baronesa",15],[340,"Magnata",14],[330,"Conselheiro",14],[320,"Prefeito",13],[310,"Fabricante",13],[300,"Balonista",12],[290,"Diplomata",12],[280,"Médico",11],[270,"Astrônomo",11],[260,"Inventor",10],[250,"Arquiteto",10],[240,"Comerciante",9],[230,"Fotógrafo",9],[220,"Chefe de Estação",8],[210,"Chefe do Porto",8],[200,"Capitão",7],[190,"Mestre de Cerimônias",7],[180,"Engenheiro",6],[170,"Esposa de Fazendeiro",6],[160,"Guarda Florestal",5],[150,"Proprietária",5],[140,"Atriz",4],[130,"Vigia Noturno",4],[120,"Cocheiro",3],[110,"Pescadora",3],[100,"Jornaleiro",2],[0,"Vagabundo",1]];
   const linha = pt => TAB.find(r => pt >= r[0]);
-  let plays = [];
+  let plays = [], caixas = [];
   const nomeH = h => h.startsWith("Caixa") ? h : "Carta de Conquista " + h;
 
   function show(w) {
@@ -169,6 +177,7 @@
 
   async function abrir(c) {
     cur = c; plays = [];
+    caixas = (c.state && Array.isArray(c.state.caixas)) ? c.state.caixas.slice() : [];
     order = (c.state && Array.isArray(c.state.marked)) ? c.state.marked.slice() : [];
     $("bt").textContent = c.name;
     $("msg").textContent = c.owner_id === uid ? "" : "Você é convidado: só visualiza.";
@@ -219,6 +228,12 @@
     $("undo").classList.toggle("hide", !canEdit);
     $("rp").classList.toggle("hide", !canEdit);
     if (canEdit && cred <= 0) { const l3 = document.createElement("p"); l3.textContent = plays.length ? "Sem círculos disponíveis. Registre uma nova partida." : "Registre uma partida pra ganhar círculos."; $("info").appendChild(l3); }
+    const CONQ = ["Castelo","Circo","Nuvens","Cervo","Fazenda","Túnel de Floresta","Túnel de Cereal","Colina","Pastora","Sinaleiro","Túnel de Vila","Armazém"];
+    const CX = ["Local Lanç. de Balões","Canteiro de Obras","Festival de Bandeiras","Cabana na Floresta","Coração Dourado","Porto","Festival da Colheita","Desejo do Coração","Locomotiva","Na Estrada p/o Sucesso","Corações Vermelhos","Navio","Estação de Trem","Torre de Vigia"];
+    const item = (ul, nome, on, dis, fn) => { const li = document.createElement("li"), lb = document.createElement("label"), ck = document.createElement("input"); ck.type = "checkbox"; ck.checked = on; ck.disabled = dis; if (fn) ck.onchange = fn; lb.appendChild(ck); lb.appendChild(document.createTextNode(nome)); li.appendChild(lb); ul.appendChild(li); };
+    $("conq").innerHTML = ""; $("cx").innerHTML = "";
+    CONQ.forEach(n => item($("conq"), n, reached(n), true));
+    CX.forEach(n => { const auto = n === "Corações Vermelhos"; item($("cx"), n, auto ? hearts > 0 : caixas.includes(n), auto || !canEdit, () => alternarCaixa(n)); });
     $("hist").innerHTML = "";
     plays.forEach(q => {
       const li = document.createElement("li");
@@ -229,9 +244,19 @@
   }
 
   async function salvar(antes) {
-    const { error } = await sb.from("campaigns").update({ state: { marked: order } }).eq("id", cur.id);
+    const { error } = await sb.from("campaigns").update({ state: { ...(cur.state || {}), marked: order, caixas } }).eq("id", cur.id);
     if (error) { order = antes; $("msg").textContent = "Erro ao salvar: " + error.message; }
-    else { cur.state = { marked: order.slice() }; $("msg").textContent = ""; }
+    else { cur.state = { ...(cur.state || {}), marked: order.slice(), caixas: caixas.slice() }; $("msg").textContent = ""; }
+    draw();
+  }
+  async function alternarCaixa(n) {
+    const antes = caixas.slice();
+    caixas = caixas.includes(n) ? caixas.filter(x => x !== n) : caixas.concat(n);
+    draw();
+    const novo = { ...(cur.state || {}), marked: order, caixas };
+    const { error } = await sb.from("campaigns").update({ state: novo }).eq("id", cur.id);
+    if (error) { caixas = antes; $("msg").textContent = "Erro ao salvar: " + error.message; }
+    else { cur.state = { ...novo, caixas: caixas.slice() }; $("msg").textContent = ""; }
     draw();
   }
   async function marcar(id) { const antes = order.slice(); order.push(id); draw(); await salvar(antes); }

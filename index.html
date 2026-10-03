@@ -5,18 +5,67 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Campanhas</title>
 <style>
-  :root { --bg: #f4efe4; --fg: #3b3226; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #1f1b15; --fg: #e8dfcc; } }
-  html, body { height: 100%; margin: 0; }
-  body { display: flex; align-items: center; justify-content: center; background: var(--bg); color: var(--fg); font-family: Georgia, serif; text-align: center; }
-  h1 { margin: 0 0 .5rem; }
-  p { margin: 0; opacity: .75; }
+  :root { --bg: #f4efe4; --fg: #3b3226; --card: #fffaf0; --bd: #d8ccb2; --ac: #8a5a2b; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1f1b15; --fg: #e8dfcc; --card: #2a251d; --bd: #4a4132; --ac: #d9a45f; } }
+  html, body { min-height: 100%; margin: 0; }
+  body { display: flex; align-items: center; justify-content: center; background: var(--bg); color: var(--fg); font-family: Georgia, serif; padding: 1rem; box-sizing: border-box; }
+  main { width: 100%; max-width: 26rem; background: var(--card); border: 1px solid var(--bd); border-radius: 12px; padding: 2rem 1.5rem; text-align: center; }
+  h1 { margin: 0 0 .5rem; font-size: 1.5rem; }
+  p { margin: .5rem 0; opacity: .8; }
+  button { margin-top: 1rem; padding: .7rem 1.2rem; font: inherit; border: 1px solid var(--ac); background: var(--ac); color: var(--bg); border-radius: 8px; cursor: pointer; }
+  button.sec { background: transparent; color: var(--fg); border-color: var(--bd); }
+  .hide { display: none; }
+  #msg { color: #b3412e; min-height: 1.2em; font-size: .9rem; }
 </style>
 </head>
 <body>
-  <main>
-    <h1>Dorf Romantik: Campanha</h1>
-    <p>Em construção.</p>
-  </main>
+<main>
+  <h1>Dorf Romantik: Campanha</h1>
+
+  <section id="out" class="hide">
+    <p>Entre para ver e criar suas campanhas.</p>
+    <button id="login">Entrar com Google</button>
+  </section>
+
+  <section id="in" class="hide">
+    <p>Olá, <strong id="nome"></strong>!</p>
+    <p id="camps">Carregando campanhas…</p>
+    <button class="sec" id="logout">Sair</button>
+  </section>
+
+  <p id="msg"></p>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  const SUPABASE_URL = "https://ffksrrnwuweudtylzszt.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_f4BiABsxLXgt7EdEE3yzyA_wmKGiYgP";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const $ = id => document.getElementById(id);
+
+  async function render(session) {
+    $("out").classList.toggle("hide", !!session);
+    $("in").classList.toggle("hide", !session);
+    if (!session) return;
+    const u = session.user;
+    $("nome").textContent = (u.user_metadata && (u.user_metadata.name || u.user_metadata.full_name)) || u.email;
+    const { data, error } = await sb.from("campaigns").select("id,name");
+    if (error) { $("camps").textContent = ""; $("msg").textContent = "Erro ao ler campanhas: " + error.message; return; }
+    $("camps").textContent = data.length ? data.length + " campanha(s)." : "Nenhuma campanha ainda.";
+  }
+
+  $("login").onclick = async () => {
+    $("msg").textContent = "";
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: location.origin + location.pathname }
+    });
+    if (error) $("msg").textContent = error.message;
+  };
+  $("logout").onclick = () => sb.auth.signOut();
+
+  sb.auth.onAuthStateChange((_e, session) => render(session));
+  sb.auth.getSession().then(({ data }) => render(data.session));
+</script>
 </body>
 </html>

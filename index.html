@@ -15,6 +15,11 @@
   button { margin-top: 1rem; padding: .7rem 1.2rem; font: inherit; border: 1px solid var(--ac); background: var(--ac); color: var(--bg); border-radius: 8px; cursor: pointer; }
   button.sec { background: transparent; color: var(--fg); border-color: var(--bd); }
   .hide { display: none; }
+  .form { display: flex; flex-direction: column; gap: .5rem; margin-top: 1rem; text-align: left; }
+  input { font: inherit; padding: .6rem; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); color: var(--fg); }
+  ul { list-style: none; padding: 0; margin: 1rem 0 0; text-align: left; }
+  li { padding: .6rem .8rem; border: 1px solid var(--bd); border-radius: 8px; margin-bottom: .4rem; }
+  li small { display: block; opacity: .7; }
   #msg { color: #b3412e; min-height: 1.2em; font-size: .9rem; }
 </style>
 </head>
@@ -30,6 +35,12 @@
   <section id="in" class="hide">
     <p>Olá, <strong id="nome"></strong>!</p>
     <p id="camps">Carregando campanhas…</p>
+    <ul id="lista"></ul>
+    <div class="form">
+      <input id="cnome" placeholder="Nome da campanha" maxlength="60">
+      <input id="cjog" placeholder="Jogadores (opcional)" maxlength="120">
+      <button id="criar">Nova campanha</button>
+    </div>
     <button class="sec" id="logout">Sair</button>
   </section>
 
@@ -49,10 +60,32 @@
     if (!session) return;
     const u = session.user;
     $("nome").textContent = (u.user_metadata && (u.user_metadata.name || u.user_metadata.full_name)) || u.email;
-    const { data, error } = await sb.from("campaigns").select("id,name");
-    if (error) { $("camps").textContent = ""; $("msg").textContent = "Erro ao ler campanhas: " + error.message; return; }
-    $("camps").textContent = data.length ? data.length + " campanha(s)." : "Nenhuma campanha ainda.";
+    await carregar();
   }
+
+  async function carregar() {
+    const { data, error } = await sb.from("campaigns").select("id,name,players,owner_id").order("created_at", { ascending: false });
+    if (error) { $("camps").textContent = ""; $("msg").textContent = "Erro ao ler campanhas: " + error.message; return; }
+    $("camps").textContent = data.length ? "" : "Nenhuma campanha ainda.";
+    const ul = $("lista");
+    ul.innerHTML = "";
+    data.forEach(c => {
+      const li = document.createElement("li");
+      li.textContent = c.name;
+      if (c.players) { const sm = document.createElement("small"); sm.textContent = c.players; li.appendChild(sm); }
+      ul.appendChild(li);
+    });
+  }
+
+  $("criar").onclick = async () => {
+    $("msg").textContent = "";
+    const name = $("cnome").value.trim();
+    if (!name) { $("msg").textContent = "Dê um nome à campanha."; return; }
+    const { error } = await sb.from("campaigns").insert({ game: "dorf-romantik", name, players: $("cjog").value.trim() || null });
+    if (error) { $("msg").textContent = "Erro ao criar: " + error.message; return; }
+    $("cnome").value = ""; $("cjog").value = "";
+    await carregar();
+  };
 
   $("login").onclick = async () => {
     $("msg").textContent = "";

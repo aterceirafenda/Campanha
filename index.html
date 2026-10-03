@@ -21,16 +21,20 @@
   li { padding: .6rem .8rem; border: 1px solid var(--bd); border-radius: 8px; margin-bottom: .4rem; }
   li small { display: block; opacity: .7; }
   main.wide { max-width: 32rem; }
-  svg { width: 100%; height: auto; margin-top: .5rem; }
-  .ln { stroke: var(--bd); stroke-width: 1.5; }
-  .c { fill: var(--card); stroke: var(--bd); stroke-width: 1.2; }
-  .c.m { fill: var(--ac); stroke: var(--ac); }
-  .c.a { fill: var(--bg); stroke: var(--ac); stroke-width: 2.2; cursor: pointer; animation: pl 1.2s infinite; }
-  @keyframes pl { 50% { opacity: .45; } }
-  .h { fill: var(--card); stroke: var(--fg); stroke-width: 1.5; }
-  .h.u { fill: var(--ac); }
-  .lb { font-size: 9px; fill: var(--fg); text-anchor: middle; stroke: var(--card); stroke-width: 3; paint-order: stroke; }
-  .hr { font-size: 9px; text-anchor: middle; fill: #c0392b; pointer-events: none; }
+  .bd { border-radius: 12px; overflow: hidden; background: linear-gradient(#8fc1ec, #cfe5f6 55%, #a9d18a 100%); margin-top: .5rem; }
+  svg { display: block; width: 100%; height: auto; }
+  .dot { fill: #fff; stroke: #7d93a8; stroke-width: 1; }
+  .dot.m { fill: #e0a030; stroke: #7a5200; }
+  .dot.a { fill: #fff; stroke: #1f6fd1; stroke-width: 2.5; animation: pl 1.1s infinite; }
+  @keyframes pl { 50% { opacity: .4; } }
+  .heart { fill: #e0453a; stroke: #fff; stroke-width: 1.5; }
+  .heart.m { stroke: #ffd54a; stroke-width: 3; }
+  .heart.a { stroke: #1f6fd1; stroke-width: 3; animation: pl 1.1s infinite; }
+  .hx { fill: #fff; font-size: 8px; text-anchor: middle; pointer-events: none; }
+  .hex { fill: #46443f; stroke: #2b2a26; stroke-width: 2; }
+  .hex.u { fill: #a8761f; }
+  .t { fill: #fff; font-size: 9.5px; font-weight: 700; text-anchor: middle; pointer-events: none; }
+  .lbl { font-size: 11px; font-weight: 700; fill: #2b2a26; text-anchor: middle; }
   #info { text-align: left; font-size: .9rem; }
   li.click { cursor: pointer; }
   #msg { color: #b3412e; min-height: 1.2em; font-size: .9rem; }
@@ -59,7 +63,7 @@
 
   <section id="board" class="hide">
     <h2 id="bt" style="margin:0"></h2>
-    <svg id="svg" viewBox="0 0 360 940"></svg>
+    <div class="bd"><svg id="svg" viewBox="0 0 600 880"></svg></div>
     <div id="info"></div>
     <button class="sec" id="undo">Desfazer último</button>
     <button class="sec" id="back">Voltar</button>
@@ -76,9 +80,33 @@
   const $ = id => document.getElementById(id);
 
   let uid = null, camps = [], cur = null, order = [];
-  const SEGS = [["Andarilho","Caixa 1",2],["Caixa 1","Caixa 2",5],["Caixa 2","Circo",4],["Caixa 2","Armazém",4],["Circo","Cervo",6],["Circo","Sinaleiro",6],["Cervo","Castelo",8],["Castelo","Fazenda",10],["Fazenda","Nuvens",10],["Armazém","Túnel de Cereal",6],["Armazém","Sinaleiro",6],["Túnel de Cereal","Túnel de Vila",8],["Túnel de Vila","Túnel de Floresta",10],["Túnel de Floresta","Nuvens",10],["Sinaleiro","Pastora",8],["Pastora","Colina",10],["Colina","Nuvens",10]];
+  const R = 44;
+  const SEGS = [["Andarilho","Caixa 1",2,0],["Caixa 1","Caixa 2",5,0],["Caixa 2","Circo",4,0],["Caixa 2","Armazém",4,0],["Circo","Cervo",6,40],["Cervo","Castelo",8,40],["Castelo","Fazenda",10,45],["Fazenda","Nuvens",10,0],["Armazém","Túnel de Cereal",6,-40],["Túnel de Cereal","Túnel de Vila",8,-40],["Túnel de Vila","Túnel de Floresta",10,-45],["Túnel de Floresta","Nuvens",10,0],["Circo","Sinaleiro",6,0],["Armazém","Sinaleiro",6,0],["Sinaleiro","Pastora",8,-40],["Pastora","Colina",10,45],["Colina","Nuvens",10,-45]];
   const HEART = new Set(["Cervo>Castelo","Túnel de Cereal>Túnel de Vila","Sinaleiro>Pastora"]);
-  const POS = {"Andarilho":[180,30],"Caixa 1":[180,110],"Caixa 2":[180,220],"Circo":[80,330],"Armazém":[280,330],"Cervo":[35,450],"Sinaleiro":[180,450],"Túnel de Cereal":[325,450],"Castelo":[35,600],"Pastora":[180,600],"Túnel de Vila":[325,600],"Fazenda":[35,750],"Colina":[180,750],"Túnel de Floresta":[325,750],"Nuvens":[180,900]};
+  const POS = {"Andarilho":[440,800],"Caixa 1":[300,800],"Caixa 2":[300,650],"Circo":[490,650],"Armazém":[110,650],"Cervo":[490,505],"Sinaleiro":[300,505],"Túnel de Cereal":[110,505],"Castelo":[490,360],"Pastora":[300,360],"Túnel de Vila":[110,360],"Fazenda":[490,215],"Colina":[300,215],"Túnel de Floresta":[110,215],"Nuvens":[300,70]};
+  function geo(f, t, n, bu) {
+    const a = POS[f], b = POS[t], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
+    const cx = (a[0] + b[0]) / 2 + (-dy / L) * bu * 2, cy = (a[1] + b[1]) / 2 + (dx / L) * bu * 2;
+    const P = [], cum = [0];
+    for (let k = 0; k <= 400; k++) {
+      const u = k / 400, w = 1 - u;
+      P.push([w * w * a[0] + 2 * w * u * cx + u * u * b[0], w * w * a[1] + 2 * w * u * cy + u * u * b[1]]);
+      if (k) cum.push(cum[k - 1] + Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1]));
+    }
+    const rs = f === "Andarilho" ? 6 : R + 7, re = R + 7;
+    let s0 = 0, e0 = 400, k;
+    for (k = 0; k <= 400; k++) if (Math.hypot(P[k][0] - a[0], P[k][1] - a[1]) > rs) { s0 = k; break; }
+    for (k = 400; k >= 0; k--) if (Math.hypot(P[k][0] - b[0], P[k][1] - b[1]) > re) { e0 = k; break; }
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const tg = cum[s0] + (cum[e0] - cum[s0]) * (i + 0.5) / n;
+      let j = 0; while (j < 400 && cum[j] < tg) j++;
+      out.push(P[j]);
+    }
+    return out;
+  }
+  const CP = SEGS.map(([f, t, n, bu]) => geo(f, t, n, bu));
+  const rotulo = h => (h.startsWith("Caixa") ? "Abra a|" + h : "Carta de|Conquista|" + h.replace("Túnel de ", "Túnel de|")).split("|");
   const NS = "http://www.w3.org/2000/svg";
   const el = (t, at, parent, txt) => { const e = document.createElementNS(NS, t); for (const k in at) e.setAttribute(k, at[k]); if (txt) e.textContent = txt; parent.appendChild(e); return e; };
   const cid = (f, t, i) => f + ">" + t + ":" + i;
@@ -133,24 +161,28 @@
     const canEdit = cur.owner_id === uid;
     const svg = $("svg");
     svg.innerHTML = "";
-    SEGS.forEach(([f, t]) => el("line", { x1: POS[f][0], y1: POS[f][1], x2: POS[t][0], y2: POS[t][1], class: "ln" }, svg));
-    SEGS.forEach(([f, t, n]) => {
+    SEGS.forEach(([f, t, n], si) => {
       const heart = HEART.has(f + ">" + t);
       for (let i = 0; i < n; i++) {
-        const k = (i + 1) / (n + 1);
-        const x = POS[f][0] + (POS[t][0] - POS[f][0]) * k, y = POS[f][1] + (POS[t][1] - POS[f][1]) * k;
-        const id = cid(f, t, i), m = M.has(id);
+        const [x, y] = CP[si][i], id = cid(f, t, i), m = M.has(id);
         const av = !m && (i === 0 ? reached(f) : M.has(cid(f, t, i - 1)));
-        const c = el("circle", { cx: x, cy: y, r: 5.5, class: "c" + (m ? " m" : av ? " a" : "") }, svg);
-        if (av && canEdit) c.onclick = () => marcar(id);
-        if (heart && i === 3) el("text", { x: x, y: y + 3, class: "hr" }, svg, "♥");
+        const st = m ? " m" : av ? " a" : "";
+        if (heart && i === 3) { el("circle", { cx: x, cy: y, r: 7, class: "heart" + st }, svg); el("text", { x: x, y: y + 3, class: "hx" }, svg, "♥"); }
+        else el("circle", { cx: x, cy: y, r: 4, class: "dot" + st }, svg);
+        if (av && canEdit) { const hit = el("circle", { cx: x, cy: y, r: 11, fill: "transparent", style: "cursor:pointer" }, svg); hit.onclick = () => marcar(id); }
       }
     });
     Object.keys(POS).forEach(h => {
-      const [x, y] = POS[h], u = reached(h) && h !== "Andarilho";
-      const pts = [0, 1, 2, 3, 4, 5].map(k => { const a = Math.PI / 3 * k; return (x + 14 * Math.cos(a)).toFixed(1) + "," + (y + 14 * Math.sin(a)).toFixed(1); }).join(" ");
-      el("polygon", { points: pts, class: "h" + (u ? " u" : "") }, svg);
-      el("text", { x: x, y: y + 27, class: "lb" }, svg, h);
+      const [x, y] = POS[h];
+      if (h === "Andarilho") {
+        el("circle", { cx: x, cy: y, r: 9, fill: "#3b5ba8", stroke: "#fff", "stroke-width": 2 }, svg);
+        el("text", { x: x, y: y + 26, class: "lbl" }, svg, "Andarilho");
+        return;
+      }
+      const pts = [[0,-R],[38,-22],[38,22],[0,R],[-38,22],[-38,-22]].map(q => (x + q[0]) + "," + (y + q[1])).join(" ");
+      el("polygon", { points: pts, class: "hex" + (reached(h) ? " u" : "") }, svg);
+      const ls = rotulo(h), y0 = y - (ls.length - 1) * 5.5 + 3;
+      ls.forEach((tx, i) => el("text", { x: x, y: y0 + i * 11, class: "t" }, svg, tx));
     });
     const hearts = order.filter(id => HEART.has(id.split(":")[0]) && id.endsWith(":3")).length;
     const desb = Object.keys(POS).filter(h => h !== "Andarilho" && reached(h)).map(nomeH);

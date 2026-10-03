@@ -175,7 +175,7 @@
     $("pont").value = ""; $("prev").textContent = "";
     show("board");
     draw();
-    const { data, error } = await sb.from("plays").select("number,data").eq("campaign_id", c.id).order("number");
+    const { data, error } = await sb.from("plays").select("number,created_at,data").eq("campaign_id", c.id).order("number");
     if (error) { $("msg").textContent = "Erro ao ler partidas: " + error.message; return; }
     plays = data;
     draw();
@@ -220,7 +220,12 @@
     $("rp").classList.toggle("hide", !canEdit);
     if (canEdit && cred <= 0) { const l3 = document.createElement("p"); l3.textContent = plays.length ? "Sem círculos disponíveis. Registre uma nova partida." : "Registre uma partida pra ganhar círculos."; $("info").appendChild(l3); }
     $("hist").innerHTML = "";
-    plays.forEach(q => { const li = document.createElement("li"); li.textContent = "Partida " + q.number + ": " + q.data.pontuacao + " pts, " + q.data.titulo + " (+" + q.data.circulos + ")"; $("hist").appendChild(li); });
+    plays.forEach(q => {
+      const li = document.createElement("li");
+      li.textContent = "Partida " + q.number + " (" + (q.created_at ? new Date(q.created_at).toLocaleDateString("pt-BR") : "") + "): " + q.data.pontuacao + " pts, " + q.data.titulo + " (+" + q.data.circulos + ") ";
+      if (canEdit) { const bt = document.createElement("button"); bt.className = "sec"; bt.style.cssText = "margin:0 0 0 .4rem;padding:.2rem .6rem;font-size:.8rem"; bt.textContent = "Excluir"; bt.onclick = () => excluir(q, cred); li.appendChild(bt); }
+      $("hist").appendChild(li);
+    });
   }
 
   async function salvar(antes) {
@@ -230,6 +235,16 @@
     draw();
   }
   async function marcar(id) { const antes = order.slice(); order.push(id); draw(); await salvar(antes); }
+  async function excluir(q, cred) {
+    const falta = q.data.circulos - cred;
+    if (falta > 0) { $("msg").textContent = "Pra excluir essa partida, desfaça antes " + falta + " círculo(s) marcado(s)."; return; }
+    if (!confirm("Excluir a partida " + q.number + " (" + q.data.pontuacao + " pts)?")) return;
+    const { error } = await sb.from("plays").delete().eq("campaign_id", cur.id).eq("number", q.number);
+    if (error) { $("msg").textContent = "Erro ao excluir: " + error.message; return; }
+    plays = plays.filter(x => x.number !== q.number);
+    $("msg").textContent = "";
+    draw();
+  }
   $("pont").oninput = () => {
     const v = parseInt($("pont").value, 10);
     $("prev").textContent = isNaN(v) || v < 0 ? "" : linha(v)[0] + " " + linha(v)[1] + ": " + linha(v)[2] + " círculo(s)";
@@ -239,9 +254,9 @@
     if (isNaN(v) || v < 0) { $("msg").textContent = "Digite a pontuação (número)."; return; }
     const r = linha(v), number = plays.length ? Math.max(...plays.map(q => q.number)) + 1 : 1;
     const data = { pontuacao: v, linha: r[0], titulo: r[1], circulos: r[2] };
-    const { error } = await sb.from("plays").insert({ campaign_id: cur.id, number, data });
+    const { data: nova, error } = await sb.from("plays").insert({ campaign_id: cur.id, number, data }).select("number,created_at,data").single();
     if (error) { $("msg").textContent = "Erro ao registrar: " + error.message; return; }
-    plays.push({ number, data });
+    plays.push(nova);
     $("pont").value = ""; $("prev").textContent = ""; $("msg").textContent = "";
     draw();
   };

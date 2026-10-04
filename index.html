@@ -649,6 +649,9 @@
   function iniciar3D() {
     if (T) return;
     const host = $("mapa3d"), K = 1 / 56, w3 = p => [(p[0] - 700) * K, (p[1] - 435) * K], PH = 0.3;
+    // ===== Relevo: a trilha sobe do Andarilho até as Nuvens =====
+    const NV3 = w3(POS["Nuvens"]), HMAX = 4.2;
+    const alt = (x, z) => { const d = Math.hypot(x - NV3[0], (z - NV3[1]) * 0.62), t = Math.max(0, 1 - d / 10); return HMAX * t * t; };
     const scene = new THREE.Scene(); scene.background = new THREE.Color(0xaacfef); scene.fog = new THREE.Fog(0xaacfef, 22, 50);
     const cam = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
     const rd = new THREE.WebGLRenderer({ antialias: true }); rd.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -681,17 +684,22 @@
     for (let q = -41; q <= 41; q++) for (let r = -85; r <= 85; r++) {
       const x = 1.5 * q, z = 1.7320508 * (r + q / 2);
       if (Math.abs(x) > 62 || z < -72 || z > 58) continue;
+      const A = alt(x, z);
       const perto = Math.abs(x) < 14 && z > -12 && z < 11;
-      if (perto && npos.some(n => Math.hypot(n[0] - x, n[1] - z) < 1.75)) continue;
       const d = perto ? Math.min(...cir.map(c => Math.hypot(c.x - x, c.z - z))) : 99;
-      if (d < 0.95) continue;
+      if (d < 0.95) { tl.push([x, A + 0.28, z, 0xc9b184]); continue; }   // leito da trilha
+      if (perto && npos.some(n => Math.hypot(n[0] - x, n[1] - z) < 1.7)) { tl.push([x, A + 0.30, z, A > 2.6 ? 0xa9b0b6 : 0x6f8a5a]); continue; } // base dos hexágonos
       const b = base(q, r), e = Math.min(1, (d - 0.95) / 2);
-      let h = 0.35 + b * 1.1 * e, col = 0x6ab04c, tp = "g";
-      if (b < 0.25) { col = 0x4a90e2; h = 0.33; tp = "w"; }
+      let h = 0.35 + b * 1.1 * e + A, col = 0x6ab04c, tp = "g";
+      if (b < 0.25) { col = 0x4a90e2; h = 0.33 + A; tp = "w"; }
       else if (b < 0.35) { col = 0xe0d9a8; tp = "s"; }
       else if (b < 0.6) { if (rnd() < 0.15) { col = 0xc49a6c; tp = "v"; } }
       else if (b < 0.8) { col = 0x2e7d32; tp = "f"; }
       else { col = 0x8d8d8d; tp = "r"; }
+      // rocha e neve conforme sobe
+      if (A > 3.0) { col = 0xf2f4f7; tp = "n"; }
+      else if (A > 2.1) { col = 0xb0b6bb; if (tp === "f" || tp === "v") tp = "g"; }
+      else if (A > 1.3) { if (tp === "v" || (tp === "f" && rnd() < 0.5)) tp = "g"; }
       tl.push([x, h, z, col]);
       if (tp === "f") for (let i = 0, k = 2 + Math.floor(rnd() * 3); i < k; i++) { const a = rnd() * 6.28, rr = rnd() * 0.5; trees.push([x + Math.cos(a) * rr, h, z + Math.sin(a) * rr]); }
       if (tp === "v") houses.push([x + (rnd() - 0.5) * 0.4, h, z + (rnd() - 0.5) * 0.4]);
@@ -706,12 +714,19 @@
     inst(new THREE.BoxGeometry(0.3, 0.25, 0.3), mt(0xffffff), houses, 0.125);
     inst(new THREE.ConeGeometry(0.25, 0.2, 4), mt(0xb71c1c, 0.7), houses, 0.35);
 
+    // nuvens pairando no cume
+    const nu = [];
+    for (let i = 0; i < 30; i++) { const a = rnd() * 6.283, rr = 0.5 + rnd() * 7.5; nu.push([NV3[0] + Math.cos(a) * rr, HMAX + 0.6 + rnd() * 2.6, NV3[1] + Math.sin(a) * rr * 0.8, 0.45 + rnd() * 1.15]); }
+    const nm = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.9, flatShading: true, depthWrite: false }), nu.length);
+    nu.forEach((p, i) => { dm.position.set(p[0], p[1], p[2]); dm.rotation.set(i * 0.7, i * 1.3, i * 0.4); dm.scale.set(p[3] * 1.6, p[3] * 0.75, p[3] * 1.2); dm.updateMatrix(); nm.setMatrixAt(i, dm.matrix); });
+    nm.frustumCulled = false; nm.renderOrder = 2; scene.add(nm);
+
     // círculos da trilha
     const cG = new THREE.CylinderGeometry(0.1, 0.1, 0.06, 20), hG = new THREE.CylinderGeometry(0.17, 0.17, 0.07, 20);
     const rG = new THREE.CylinderGeometry(0.15, 0.15, 0.03, 20), rGh = new THREE.CylinderGeometry(0.25, 0.25, 0.03, 20);
     const mW = mt(0xfffaf0, 0.5), mM = mt(0xffd54f, 0.4, 0x7a5a00), mH = mt(0xe53935, 0.4, 0x5a0a0a), mA = mt(0xffffff, 0.4, 0x1f6fd1);
     const hBlue = new THREE.MeshBasicMaterial({ color: 0x1f6fd1 }), hGold = new THREE.MeshBasicMaterial({ color: 0xffd54a });
-    cir.forEach(c => { c.m = put(c.heart ? hG : cG, mW, c.x, PH + 0.03, c.z); c.h = put(c.heart ? rGh : rG, hBlue, c.x, PH + 0.015, c.z); });
+    cir.forEach(c => { const y = alt(c.x, c.z) + PH; c.m = put(c.heart ? hG : cG, mW, c.x, y + 0.03, c.z); c.h = put(c.heart ? rGh : rG, hBlue, c.x, y + 0.015, c.z); });
 
     // hexágonos da trilha
     const BG = { start: 0, box: 0xc49a6c };
@@ -719,15 +734,15 @@
     const setLabel = (s, txt) => { const cv = s.userData.cv, g = cv.getContext("2d"); g.clearRect(0, 0, 380, 80); g.fillStyle = "rgba(0,0,0,.6)"; g.fillRect(6, 6, 368, 68); g.fillStyle = "#fff"; g.font = "bold 34px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(txt, 190, 42); s.material.map.needsUpdate = true; };
     const crist = new THREE.OctahedronGeometry(0.38), bau = new THREE.BoxGeometry(0.8, 0.5, 0.6), tampa = new THREE.BoxGeometry(0.84, 0.14, 0.64);
     const nodes = Object.keys(POS).map(h => {
-      const [x, z] = w3(POS[h]), n = { h, x, z, lb: mkLabel() };
+      const [x, z] = w3(POS[h]), n = { h, x, z, y: alt(x, z), lb: mkLabel() };
       if (h === "Andarilho") {
-        put(new THREE.CylinderGeometry(0.25, 0.25, 0.04, 16), mt(0x3b5ba8), x, PH + 0.02, z);
-        put(new THREE.BoxGeometry(0.3, 0.25, 0.3), mt(0xffffff), x + 0.45, PH + 0.125, z); put(new THREE.ConeGeometry(0.25, 0.2, 4), mt(0xb71c1c, 0.7), x + 0.45, PH + 0.35, z).rotation.y = Math.PI / 4;
-        n.lb.position.set(x, PH + 1.1, z); return n;
+        put(new THREE.CylinderGeometry(0.25, 0.25, 0.04, 16), mt(0x3b5ba8), x, n.y + PH + 0.02, z);
+        put(new THREE.BoxGeometry(0.3, 0.25, 0.3), mt(0xffffff), x + 0.45, n.y + PH + 0.125, z); put(new THREE.ConeGeometry(0.25, 0.2, 4), mt(0xb71c1c, 0.7), x + 0.45, n.y + PH + 0.35, z).rotation.y = Math.PI / 4;
+        n.lb.position.set(x, n.y + PH + 1.1, z); return n;
       }
-      n.hex = put(hexG, mt(0x6f7a66, 0.6), x, 0.5, z, 1, 1, 1);
-      if (h.startsWith("Caixa")) { n.d = [put(bau, mt(0x8d5524), x, 0, z), put(tampa, mt(0xffd54f, 0.4), x, 0, z)]; }
-      else n.d = [put(crist, mt(0xffd54f, 0.3, 0x5a4300), x, 0, z)];
+      n.hex = put(hexG, mt(0x6f7a66, 0.6), x, n.y + 0.5, z, 1, 1, 1);
+      if (h.startsWith("Caixa")) { n.d = [put(bau, mt(0x8d5524), x, n.y, z), put(tampa, mt(0xffd54f, 0.4), x, n.y, z)]; }
+      else n.d = [put(crist, mt(0xffd54f, 0.3, 0x5a4300), x, n.y, z)];
       return n;
     });
     let sc = 0;
@@ -745,9 +760,9 @@
       pedir() { if (!sc) sc = requestAnimationFrame(render); },
       resize() { const w = host.clientWidth || innerWidth, h = host.clientHeight || innerHeight; rd.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); this.pedir(); },
       foco(anim) {
-        const [x, z] = w3(focoPt || POS["Andarilho"]);
-        if (anim) { goal.set(x, 0, z); this.fly = true; }
-        else { const off = cam.position.clone().sub(ctl.target); ctl.target.set(x, 0, z); cam.position.copy(ctl.target).add(off); ctl.update(); }
+        const [x, z] = w3(focoPt || POS["Andarilho"]), y = alt(x, z);
+        if (anim) { goal.set(x, y, z); this.fly = true; }
+        else { const off = cam.position.clone().sub(ctl.target); ctl.target.set(x, y, z); cam.position.copy(ctl.target).add(off); ctl.update(); }
         this.pedir();
       },
       atualizar() {
@@ -763,14 +778,15 @@
           if (!n.hex) { setLabel(n.lb, "Andarilho"); return; }
           const ok = e.reached.has(n.h), h = ok ? 1 : 0.7;
           n.hex.material = mt(ok ? (n.h.startsWith("Caixa") ? 0xc49a6c : BIOMA[n.h] || 0xa8761f) : 0x6f7a66, 0.6);
-          n.hex.scale.y = h; n.hex.position.y = h / 2;
-          n.d.forEach((o, i) => { o.visible = ok; o.position.y = h + (n.h.startsWith("Caixa") ? (i ? 0.57 : 0.25) : 0.75); });
-          n.lb.position.set(n.x, h + 1.5, n.z); setLabel(n.lb, (ok ? "👑 " : "🔒 ") + n.h);
+          n.hex.scale.y = h; n.hex.position.y = n.y + h / 2;
+          n.d.forEach((o, i) => { o.visible = ok; o.position.y = n.y + h + (n.h.startsWith("Caixa") ? (i ? 0.57 : 0.25) : 0.75); });
+          n.lb.position.set(n.x, n.y + h + 1.5, n.z); setLabel(n.lb, (ok ? "👑 " : "🔒 ") + n.h);
         });
         rd.shadowMap.needsUpdate = true; this.pedir();
       }
     };
-    cam.position.set(0, 9, 8);
+    ctl.target.set(0, 1.6, -2.5);
+    cam.position.set(0, 10, 11);
     ctl.addEventListener("change", () => T.pedir());
     window.addEventListener("resize", () => { if (modo3d) T.resize(); });
     let p0 = null;

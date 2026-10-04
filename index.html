@@ -651,7 +651,7 @@
     const host = $("mapa3d"), K = 1 / 56, w3 = p => [(p[0] - 700) * K, (p[1] - 435) * K], PH = 0.3;
     // ===== Relevo: a trilha sobe do Andarilho até as Nuvens =====
     const NV3 = w3(POS["Nuvens"]), HMAX = 4.2;
-    const alt = (x, z) => { const d = Math.hypot(x - NV3[0], (z - NV3[1]) * 0.62), t = Math.max(0, 1 - d / 10); return HMAX * t * t; };
+    const alt = (x, z) => { const d = Math.hypot(x - NV3[0], (z - NV3[1]) * 0.5), t = Math.max(0, 1 - d / 12); return HMAX * Math.pow(t, 1.5); };
     const scene = new THREE.Scene(); scene.background = new THREE.Color(0xaacfef); scene.fog = new THREE.Fog(0xaacfef, 22, 50);
     const cam = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
     const rd = new THREE.WebGLRenderer({ antialias: true }); rd.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -679,24 +679,24 @@
     const npos = Object.keys(POS).map(h => w3(POS[h]));
     const base = (q, r) => (Math.sin(q * 0.7) * Math.cos(r * 0.9) + Math.sin(q * 1.3 + r * 1.1) * 0.5 + Math.cos(q * 0.4 - r * 1.7) * 0.3 + 1.8) / 3.6;
     let sd = 11; const rnd = () => { sd = (sd * 1664525 + 1013904223) % 4294967296; return sd / 4294967296; };
-    const trees = [], houses = [];
-    const tl = [];
+    const trees = [], houses = [], tl = [], loc = [];
     for (let q = -41; q <= 41; q++) for (let r = -85; r <= 85; r++) {
       const x = 1.5 * q, z = 1.7320508 * (r + q / 2);
       if (Math.abs(x) > 62 || z < -72 || z > 58) continue;
-      const A = alt(x, z);
       const perto = Math.abs(x) < 14 && z > -12 && z < 11;
+      let A = alt(x, z), nn = false;
+      if (perto) { const k = npos.findIndex(n => Math.hypot(n[0] - x, n[1] - z) < 1.7); if (k >= 0) { nn = true; A = alt(npos[k][0], npos[k][1]); } }
       const d = perto ? Math.min(...cir.map(c => Math.hypot(c.x - x, c.z - z))) : 99;
-      if (d < 0.95) { tl.push([x, A + 0.28, z, 0xc9b184]); continue; }   // leito da trilha
-      if (perto && npos.some(n => Math.hypot(n[0] - x, n[1] - z) < 1.7)) { tl.push([x, A + 0.30, z, A > 2.6 ? 0xa9b0b6 : 0x6f8a5a]); continue; } // base dos hexágonos
-      const b = base(q, r), e = Math.min(1, (d - 0.95) / 2);
+      if (d < 1.05) { const top = A + 0.28; tl.push([x, top, z, 0xc9b184]); loc.push([x, z, top]); continue; }
+      if (nn) { const top = A + 0.30; tl.push([x, top, z, A > 2.6 ? 0xa9b0b6 : 0x6f8a5a]); loc.push([x, z, top]); continue; }
+      const b = base(q, r), e = Math.min(1, (d - 1.05) / 2.5);
       let h = 0.35 + b * 1.1 * e + A, col = 0x6ab04c, tp = "g";
       if (b < 0.25) { col = 0x4a90e2; h = 0.33 + A; tp = "w"; }
       else if (b < 0.35) { col = 0xe0d9a8; tp = "s"; }
       else if (b < 0.6) { if (rnd() < 0.15) { col = 0xc49a6c; tp = "v"; } }
       else if (b < 0.8) { col = 0x2e7d32; tp = "f"; }
       else { col = 0x8d8d8d; tp = "r"; }
-      // rocha e neve conforme sobe
+      if (A > 0.8 && tp === "w") { col = 0x6ab04c; tp = "g"; h = 0.35 + b * 1.1 * e + A; } // sem lago na montanha
       if (A > 3.0) { col = 0xf2f4f7; tp = "n"; }
       else if (A > 2.1) { col = 0xb0b6bb; if (tp === "f" || tp === "v") tp = "g"; }
       else if (A > 1.3) { if (tp === "v" || (tp === "f" && rnd() < 0.5)) tp = "g"; }
@@ -704,6 +704,8 @@
       if (tp === "f") for (let i = 0, k = 2 + Math.floor(rnd() * 3); i < k; i++) { const a = rnd() * 6.28, rr = rnd() * 0.5; trees.push([x + Math.cos(a) * rr, h, z + Math.sin(a) * rr]); }
       if (tp === "v") houses.push([x + (rnd() - 0.5) * 0.4, h, z + (rnd() - 0.5) * 0.4]);
     }
+    // cada círculo assenta no topo do hexágono em que ele está
+    cir.forEach(c => { let best = 1e9; c.top = alt(c.x, c.z) + 0.28; for (const l of loc) { const dd = Math.hypot(l[0] - c.x, l[1] - c.z); if (dd < best) { best = dd; c.top = l[2]; } } });
     const dm = new THREE.Object3D();
     const tm = new THREE.InstancedMesh(hexG, new THREE.MeshStandardMaterial({ roughness: 0.8 }), tl.length), cc = new THREE.Color();
     tl.forEach((t, i) => { dm.position.set(t[0], t[1] / 2, t[2]); dm.rotation.set(0, 0, 0); dm.scale.set(1, t[1], 1); dm.updateMatrix(); tm.setMatrixAt(i, dm.matrix); tm.setColorAt(i, cc.setHex(t[3])); });
@@ -714,19 +716,23 @@
     inst(new THREE.BoxGeometry(0.3, 0.25, 0.3), mt(0xffffff), houses, 0.125);
     inst(new THREE.ConeGeometry(0.25, 0.2, 4), mt(0xb71c1c, 0.7), houses, 0.35);
 
-    // nuvens pairando no cume
+    // nuvens nas laterais e atrás do cume, grudadas na encosta
     const nu = [];
-    for (let i = 0; i < 30; i++) { const a = rnd() * 6.283, rr = 0.5 + rnd() * 7.5; nu.push([NV3[0] + Math.cos(a) * rr, HMAX + 0.6 + rnd() * 2.6, NV3[1] + Math.sin(a) * rr * 0.8, 0.45 + rnd() * 1.15]); }
-    const nm = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.9, flatShading: true, depthWrite: false }), nu.length);
+    for (let i = 0; i < 16; i++) {
+      const lado = i % 2 ? 1 : -1;
+      const x = NV3[0] + lado * (3.8 + rnd() * 6), z = NV3[1] - 1 - rnd() * 6;
+      nu.push([x, alt(x, z) + 1.4 + rnd() * 1.6, z, 0.4 + rnd() * 0.6]);
+    }
+    const nm = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.8, flatShading: true, depthWrite: false }), nu.length);
     nu.forEach((p, i) => { dm.position.set(p[0], p[1], p[2]); dm.rotation.set(i * 0.7, i * 1.3, i * 0.4); dm.scale.set(p[3] * 1.6, p[3] * 0.75, p[3] * 1.2); dm.updateMatrix(); nm.setMatrixAt(i, dm.matrix); });
     nm.frustumCulled = false; nm.renderOrder = 2; scene.add(nm);
 
-    // círculos da trilha
+    // círculos da trilha (assentados no topo do hexágono)
     const cG = new THREE.CylinderGeometry(0.1, 0.1, 0.06, 20), hG = new THREE.CylinderGeometry(0.17, 0.17, 0.07, 20);
     const rG = new THREE.CylinderGeometry(0.15, 0.15, 0.03, 20), rGh = new THREE.CylinderGeometry(0.25, 0.25, 0.03, 20);
     const mW = mt(0xfffaf0, 0.5), mM = mt(0xffd54f, 0.4, 0x7a5a00), mH = mt(0xe53935, 0.4, 0x5a0a0a), mA = mt(0xffffff, 0.4, 0x1f6fd1);
     const hBlue = new THREE.MeshBasicMaterial({ color: 0x1f6fd1 }), hGold = new THREE.MeshBasicMaterial({ color: 0xffd54a });
-    cir.forEach(c => { const y = alt(c.x, c.z) + PH; c.m = put(c.heart ? hG : cG, mW, c.x, y + 0.03, c.z); c.h = put(c.heart ? rGh : rG, hBlue, c.x, y + 0.015, c.z); });
+    cir.forEach(c => { const y = c.top; c.m = put(c.heart ? hG : cG, mW, c.x, y + 0.03, c.z); c.h = put(c.heart ? rGh : rG, hBlue, c.x, y + 0.015, c.z); });
 
     // hexágonos da trilha
     const BG = { start: 0, box: 0xc49a6c };

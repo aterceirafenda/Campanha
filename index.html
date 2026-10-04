@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Campanhas — Mapa 3D</title>
+<title>Campanhas</title>
 <style>
   :root { --bg: #e9e2cd; --fg: #3a3226; --card: #fbf6e8; --bd: #d3c6a3; --ac: #4f7a3a; --ac2: #b5683f; --ouro: #d9a73a; --sombra: rgba(70,52,28,.18); --glass: rgba(251,246,232,.93); }
   @media (prefers-color-scheme: dark) { :root { --bg: #171d16; --fg: #ece3cd; --card: #232a20; --bd: #3f4a38; --ac: #8fc062; --ac2: #d98a5f; --ouro: #e6b84a; --sombra: rgba(0,0,0,.45); --glass: rgba(35,42,32,.94); } }
@@ -30,6 +30,28 @@
   @media (prefers-color-scheme: dark) { li { background: rgba(255,255,255,.04); } }
   li small { display: block; opacity: .7; }
   main.wide { max-width: 32rem; }
+  .bd { border-radius: 16px; overflow: hidden; margin-top: .5rem; border: 3px solid var(--bd); box-shadow: inset 0 0 40px rgba(40,70,30,.25), 0 4px 10px var(--sombra); background: radial-gradient(ellipse at 50% 8%, #e4f1fb 0%, #bfdcf2 22%, transparent 45%), radial-gradient(circle at 18% 70%, #b9dc8c 0%, transparent 40%), radial-gradient(circle at 82% 55%, #cfe49a 0%, transparent 38%), linear-gradient(#bfdcf2, #a7d27e 38%, #8fc062 100%); }
+  svg { display: block; width: 100%; height: auto; }
+  .trail { fill: none; stroke: #f3e7c4; stroke-width: 11; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+  .trail2 { fill: none; stroke: #c9ae78; stroke-width: 11; stroke-linecap: round; stroke-linejoin: round; opacity: .35; transform: translate(0, 2px); }
+  .dot { fill: #fffaf0; stroke: #8c7a55; stroke-width: 1.2; }
+  .dot.m { fill: #e0a030; stroke: #6b4300; stroke-width: 1.5; }
+  .dot.a { fill: #fff; stroke: #1f6fd1; stroke-width: 3; }
+  .halo { fill: rgba(31,111,209,.28); pointer-events: none; }
+  @keyframes pl { 50% { opacity: .4; } }
+  .heart { fill: #e0453a; stroke: #fff; stroke-width: 1.5; }
+  .heart.m { stroke: #ffd54a; stroke-width: 3; }
+  .heart.a { stroke: #1f6fd1; stroke-width: 3; }
+  .ic { font-size: 13px; text-anchor: middle; pointer-events: none; }
+  #hist li { padding: .3rem .6rem; font-size: .85rem; margin-bottom: .25rem; }
+  .hx { fill: #fff; font-size: 11px; text-anchor: middle; pointer-events: none; }
+  .hexsh { fill: rgba(30,40,20,.32); pointer-events: none; }
+  .hex { fill: #6f7a66; stroke: #3b4636; stroke-width: 2.5; stroke-linejoin: round; }
+  .hex.l { stroke-dasharray: 5 4; opacity: .88; }
+  .hexin { fill: none; stroke: rgba(255,255,255,.45); stroke-width: 1.5; stroke-linejoin: round; pointer-events: none; }
+  .hex.u { fill: #a8761f; }
+  .t { fill: #fffdf5; font-size: 12px; font-weight: 700; text-anchor: middle; pointer-events: none; paint-order: stroke; stroke: rgba(30,25,15,.55); stroke-width: 2.2px; stroke-linejoin: round; }
+  .lbl { font-size: 14px; font-weight: 700; fill: #fffdf5; text-anchor: middle; paint-order: stroke; stroke: rgba(30,25,15,.6); stroke-width: 3px; stroke-linejoin: round; }
   #info { text-align: left; font-size: .9rem; }
   li.click { cursor: pointer; }
   .g { display: grid; grid-template-columns: 1fr 1fr; gap: .3rem; }
@@ -37,15 +59,14 @@
   .g label { display: flex; gap: .4rem; align-items: center; }
   h3 { text-align: left; margin: 1.2rem 0 .3rem; font-size: 1rem; color: var(--ac2); border-bottom: 2px dotted var(--bd); padding-bottom: .2rem; }
   #msg { color: #b3412e; min-height: 1.2em; font-size: .9rem; }
-  #msg:empty { display: none; }
-
   /* ===== Mapa em tela cheia ===== */
   body.emmapa { overflow: hidden; }
+  #msg:empty { display: none; }
   body.emmapa #msg { position: fixed; left: 50%; bottom: 1.2rem; transform: translateX(-50%); z-index: 30; max-width: min(90vw, 28rem); margin: 0; padding: .55rem 1rem; background: var(--glass); border: 1px solid var(--bd); border-radius: 999px; box-shadow: 0 6px 18px var(--sombra); text-align: center; opacity: 1; }
   #board { position: fixed; inset: 0; z-index: 5; background: #a7d27e; text-align: left; }
   #mapa { position: absolute; inset: 0; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
   #mapa:active { cursor: grabbing; }
-  #mapa canvas { display: block; width: 100% !important; height: 100% !important; }
+  #svg { position: absolute; left: 0; top: 0; max-width: none; width: 2750px; height: 2625px; transform-origin: 0 0; will-change: transform; touch-action: none; }
   #topo { position: absolute; top: .6rem; left: .6rem; right: .6rem; display: flex; align-items: center; gap: .5rem; pointer-events: none; z-index: 6; }
   #topo > * { pointer-events: auto; }
   #bt { margin: 0; flex: 1; min-width: 0; padding: .6rem 1rem; border-radius: 999px; background: var(--glass); box-shadow: 0 2px 8px var(--sombra); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ac); }
@@ -60,7 +81,6 @@
   .rb i { font-style: normal; font-size: 1.35rem; }
   .rb span { font-size: .62rem; margin-top: 2px; }
   .rb.on { background: var(--ac); color: #fffaf0; border-color: var(--ac); }
-  @keyframes pl { 50% { opacity: .4; } }
   .rb.pulsa { animation: pl 1.2s infinite; box-shadow: 0 0 0 3px var(--ouro); }
   #painel { display: none; position: absolute; left: calc(.6rem + 58px + .5rem); top: 4.4rem; width: min(calc(100vw - 6.6rem), 22rem); max-height: calc(100% - 5.6rem); overflow-y: auto; box-sizing: border-box; padding: .8rem 1rem 1rem; background: var(--glass); border: 1px solid var(--bd); border-radius: 18px; box-shadow: 0 10px 28px var(--sombra); z-index: 7; animation: entra .18s ease-out; }
   #painel.on { display: block; }
@@ -74,7 +94,7 @@
 </head>
 <body>
 <main>
-  <h1>Dorf Romantik: Campanha 3D</h1>
+  <h1>Dorf Romantik: Campanha</h1>
 
   <section id="out" class="hide">
     <p>Entre para ver e criar suas campanhas.</p>
@@ -94,7 +114,7 @@
   </section>
 
   <section id="board" class="hide">
-    <div id="mapa"></div>
+    <div id="mapa"><svg id="svg" viewBox="150 -190 1100 1050"></svg></div>
 
     <header id="topo">
       <button class="rd" id="back" title="Voltar às campanhas" aria-label="Voltar às campanhas">←</button>
@@ -154,7 +174,7 @@
 
       <div class="pn" id="p-mais">
         <h3>Mais opções</h3>
-        <p class="ajuda">Arraste para orbitar · Scroll pra aproximar · Botão direito pra mover · Clique nos círculos brancos pra marcar.</p>
+        <p class="ajuda">Arraste o mapa pra explorar. Pinça (ou role o mouse) pra aproximar. O botão 🎯 volta pra trilha.</p>
         <button class="sec hide" id="sair">Sair desta campanha</button>
         <button class="perigo hide" id="delcamp">Excluir campanha</button>
       </div>
@@ -168,21 +188,10 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
-<script type="module">
-  import * as THREE from 'three';
-  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
+<script>
   const SUPABASE_URL = "https://ffksrrnwuweudtylzszt.supabase.co";
   const SUPABASE_KEY = "sb_publishable_f4BiABsxLXgt7EdEE3yzyA_wmKGiYgP";
-  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const $ = id => document.getElementById(id);
 
   (function () {
@@ -228,510 +237,34 @@
     }
     return out;
   }
-  const DG = Math.max(D0, ...SEGS.map(([f, t, n]) => curva(f, t, 0, 1).len / n));
+  const DG = Math.max(D0, ...SEGS.map(([f, t, n, h]) => curva(f, t, 0, 1).len / n));
   const CP = SEGS.map(([f, t, n, h]) => geo(f, t, n, h, DG));
+  const rotulo = h => (h.startsWith("Caixa") ? "Abra a|" + h : "Carta de|Conquista|" + h.replace("Túnel de ", "Túnel de|")).split("|");
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (t, at, parent, txt) => { const e = document.createElementNS(NS, t); for (const k in at) e.setAttribute(k, at[k]); if (txt) e.textContent = txt; parent.appendChild(e); return e; };
   const cid = (f, t, i) => f + ">" + t + ":" + i;
-  const nomeH = h => h.startsWith("Caixa") ? h : "Carta de Conquista " + h;
-
-  // ===== TABELA DE PONTUAÇÃO =====
+  const BGHTML = (function () {
+    let sd = 1234567;
+    const rnd = () => { sd = (sd * 1664525 + 1013904223) % 4294967296; return sd / 4294967296; };
+    let h = '<defs><linearGradient id="gf" gradientUnits="userSpaceOnUse" x1="0" y1="-500" x2="0" y2="1300"><stop offset="0" stop-color="#8ec5ee"/><stop offset=".27" stop-color="#d3e9f7"/><stop offset=".36" stop-color="#b6dc8a"/><stop offset=".7" stop-color="#93c566"/><stop offset="1" stop-color="#7cae52"/></linearGradient></defs>';
+    h += '<rect x="100" y="-240" width="1200" height="1150" fill="url(#gf)"/>';
+    for (let i = 0; i < 40; i++) h += '<ellipse cx="' + (170 + rnd() * 1060).toFixed(0) + '" cy="' + (160 + rnd() * 700).toFixed(0) + '" rx="' + (30 + rnd() * 70).toFixed(0) + '" ry="' + (15 + rnd() * 35).toFixed(0) + '" fill="' + (rnd() < .5 ? "#c5e59a" : "#6fa84a") + '" opacity=".22"/>';
+    for (let i = 0; i < 8; i++) { const cx = 200 + rnd() * 1000, cy = -160 + rnd() * 150; h += '<g fill="#fff" opacity=".85"><ellipse cx="' + cx.toFixed(0) + '" cy="' + cy.toFixed(0) + '" rx="42" ry="14"/><ellipse cx="' + (cx + 24).toFixed(0) + '" cy="' + (cy - 10).toFixed(0) + '" rx="26" ry="14"/><ellipse cx="' + (cx - 26).toFixed(0) + '" cy="' + (cy - 6).toFixed(0) + '" rx="22" ry="11"/></g>'; }
+    for (let i = 0; i < 32; i++) { const x = rnd() < .5 ? 170 + rnd() * 300 : 935 + rnd() * 300, y = 140 + rnd() * 680, r = 9 + rnd() * 6; h += '<circle cx="' + x.toFixed(0) + '" cy="' + y.toFixed(0) + '" r="' + r.toFixed(1) + '" fill="#3d7a3a"/><circle cx="' + (x - 3).toFixed(0) + '" cy="' + (y - 3).toFixed(0) + '" r="' + (r * .55).toFixed(1) + '" fill="#5fa04a"/>'; }
+    return h;
+  })();
+  $("svg").innerHTML = BGHTML + '<g id="din"></g>';
   const TAB = [[400,"Imperatriz",15],[375,"Príncipe Herdeiro",15],[350,"Baronesa",15],[340,"Magnata",14],[330,"Conselheiro",14],[320,"Prefeito",13],[310,"Fabricante",13],[300,"Balonista",12],[290,"Diplomata",12],[280,"Médico",11],[270,"Astrônomo",11],[260,"Inventor",10],[250,"Arquiteto",10],[240,"Comerciante",9],[230,"Fotógrafo",9],[220,"Chefe de Estação",8],[210,"Chefe do Porto",8],[200,"Capitão",7],[190,"Mestre de Cerimônias",7],[180,"Engenheiro",6],[170,"Esposa de Fazendeiro",6],[160,"Guarda Florestal",5],[150,"Proprietária",5],[140,"Atriz",4],[130,"Vigia Noturno",4],[120,"Cocheiro",3],[110,"Pescadora",3],[100,"Jornaleiro",2],[0,"Vagabundo",1]];
   const linha = pt => TAB.find(r => pt >= r[0]);
   let plays = [], caixas = [], verTodas = false;
+  const nomeH = h => h.startsWith("Caixa") ? h : "Carta de Conquista " + h;
 
-  // ===== THREE.JS =====
-  const CX = 700, CY = 422;
-  const ALTURA = {"Andarilho":10,"Circo":18,"Armazém":18,"Cervo":18,"Sinaleiro":18,"Túnel de Cereal":18,"Túnel de Vila":18,"Castelo":22,"Pastora":18,"Fazenda":18,"Colina":42,"Túnel de Floresta":18,"Nuvens":18,"Caixa 1":18,"Caixa 2":18};
-  let T = null;
-
-  function initThree() {
-    const container = $("mapa");
-    container.innerHTML = "";
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xaaccff);
-    scene.fog = new THREE.Fog(0xcce4f5, 1300, 2600);
-
-    const camera = new THREE.PerspectiveCamera(45, 1, 1, 6000);
-    camera.position.set(150, 950, 900);
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    container.appendChild(renderer.domElement);
-
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x556644, 1.05));
-    const sun = new THREE.DirectionalLight(0xffffff, 2.2);
-    sun.position.set(500, 1100, 500);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -700; sun.shadow.camera.right = 700;
-    sun.shadow.camera.top = 900; sun.shadow.camera.bottom = -900;
-    sun.shadow.camera.near = 100; sun.shadow.camera.far = 3000;
-    sun.shadow.bias = -0.0005;
-    scene.add(sun);
-
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(4000, 4000),
-      new THREE.MeshStandardMaterial({ color: 0x8fbc5a, roughness: 1 })
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.5;
-    ground.receiveShadow = true;
-    scene.add(ground);
-
-    const dyn = new THREE.Group();
-    scene.add(dyn);
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
-    controls.maxPolarAngle = Math.PI / 2.05;
-    controls.minDistance = 180;
-    controls.maxDistance = 2200;
-    controls.zoomSpeed = 1.0;
-    controls.panSpeed = 0.85;
-    controls.target.set(0, 0, 0);
-    controls.update();
-
-    function tick() {
-      requestAnimationFrame(tick);
-      controls.update();
-      renderer.render(scene, camera);
-    }
-    tick();
-
-    function resize() {
-      const w = container.clientWidth || window.innerWidth;
-      const h = container.clientHeight || window.innerHeight;
-      if (!w || !h) return;
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h, false);
-    }
-    window.addEventListener("resize", resize);
-    if (window.ResizeObserver) new ResizeObserver(resize).observe(container);
-    setTimeout(resize, 30);
-    resize();
-
-    T = { scene, camera, renderer, controls, dyn, container, sun };
-
-    let dX = 0, dY = 0, dT = 0;
-    renderer.domElement.addEventListener("pointerdown", e => {
-      dX = e.clientX; dY = e.clientY; dT = performance.now();
-    });
-    renderer.domElement.addEventListener("pointerup", e => {
-      if (e.button !== 0) return;
-      const dist = Math.hypot(e.clientX - dX, e.clientY - dY);
-      if (dist < 8 && performance.now() - dT < 600) tratarClique(e.clientX, e.clientY);
-    });
-  }
-
-  function tratarClique(cx, cy) {
-    if (!T || !cur) return;
-    const r = T.renderer.domElement.getBoundingClientRect();
-    const mouse = new THREE.Vector2(
-      ((cx - r.left) / r.width) * 2 - 1,
-      -((cy - r.top) / r.height) * 2 + 1
-    );
-    const ray = new THREE.Raycaster();
-    ray.setFromCamera(mouse, T.camera);
-    const hits = ray.intersectObjects(T.dyn.children, true);
-    const canEdit = cur.owner_id === uid;
-    let clicou = false;
-    for (const h of hits) {
-      let o = h.object;
-      while (o && (!o.userData || !o.userData.tipo)) o = o.parent;
-      if (!o || !o.userData) continue;
-      if (o.userData.tipo === "dot" && o.userData.av && canEdit) {
-        clicou = true;
-        marcar(o.userData.id);
-        return;
-      }
-    }
-    if (!clicou) abrirPainel(null);
-  }
-
-  function limparGrupo(g) {
-    while (g.children.length) {
-      const c = g.children.pop();
-      c.traverse(o => {
-        if (o.geometry) o.geometry.dispose();
-        if (o.material) {
-          if (Array.isArray(o.material)) o.material.forEach(m => m.dispose());
-          else o.material.dispose();
-        }
-      });
-    }
-  }
-
-  function buildMap(M, reached, cred, canEdit) {
-    limparGrupo(T.dyn);
-
-    // ---- HEXES ----
-    Object.keys(POS).forEach(h => {
-      const [px, py] = POS[h];
-      const x = px - CX, z = py - CY;
-      const ok = reached(h);
-
-      if (h === "Andarilho") {
-        const base = new THREE.Mesh(
-          new THREE.CylinderGeometry(30, 32, 10, 6),
-          new THREE.MeshStandardMaterial({ color: 0x3b5ba8, roughness: 0.7, flatShading: true })
-        );
-        base.rotation.y = Math.PI / 2;
-        base.position.set(x, 5, z);
-        base.castShadow = true; base.receiveShadow = true;
-        T.dyn.add(base);
-        const orb = new THREE.Mesh(
-          new THREE.SphereGeometry(9, 20, 16),
-          new THREE.MeshStandardMaterial({ color: 0xfffaf0, roughness: 0.3, emissive: 0x445588, emissiveIntensity: 0.4 })
-        );
-        orb.position.set(x, 22, z);
-        orb.castShadow = true;
-        T.dyn.add(orb);
-        return;
-      }
-
-      const cor = new THREE.Color(BIOMA[h] || "#a8761f");
-      const cor3 = ok ? cor : new THREE.Color(0x6f7a66);
-      const alt = ALTURA[h] || 18;
-
-      const hex = new THREE.Mesh(
-        new THREE.CylinderGeometry(56, 56, alt, 6),
-        new THREE.MeshStandardMaterial({
-          color: cor3,
-          roughness: 0.9, metalness: 0,
-          transparent: !ok, opacity: ok ? 1 : 0.65,
-          flatShading: true
-        })
-      );
-      hex.rotation.y = Math.PI / 2;
-      hex.position.set(x, alt / 2, z);
-      hex.castShadow = true; hex.receiveShadow = true;
-      hex.userData = { tipo: "hex", nome: h };
-      T.dyn.add(hex);
-
-      const cap = new THREE.Mesh(
-        new THREE.CylinderGeometry(54, 54, 1.5, 6),
-        new THREE.MeshStandardMaterial({ color: cor3, roughness: 0.7, flatShading: true })
-      );
-      cap.rotation.y = Math.PI / 2;
-      cap.position.set(x, alt + 0.75, z);
-      cap.receiveShadow = true;
-      T.dyn.add(cap);
-
-      if (ok) decorar(h, x, alt, z);
-    });
-
-    // ---- TRILHAS (tubos) ----
-    SEGS.forEach(([f, t, n], si) => {
-      const altF = (ALTURA[f] || 18) + 3;
-      const altT = (ALTURA[t] || 18) + 3;
-      const pts = [POS[f]].concat(CP[si], [POS[t]]).map((p, i, arr) => {
-        let y = 22;
-        if (i === 0) y = altF;
-        else if (i === arr.length - 1) y = altT;
-        return new THREE.Vector3(p[0] - CX, y, p[1] - CY);
-      });
-      const curve = new THREE.CatmullRomCurve3(pts);
-      const geo = new THREE.TubeGeometry(curve, 80, 4.5, 6, false);
-      const tube = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-        color: 0xf3e7c4, roughness: 0.95, flatShading: true
-      }));
-      tube.castShadow = true; tube.receiveShadow = true;
-      T.dyn.add(tube);
-    });
-
-    // ---- CÍRCULOS / MARCADORES ----
-    SEGS.forEach(([f, t, n], si) => {
-      const heart = HEART.has(f + ">" + t);
-      for (let i = 0; i < n; i++) {
-        const [px, py] = CP[si][i];
-        const x = px - CX, z = py - CY;
-        const id = cid(f, t, i);
-        const m = M.has(id);
-        const av = !m && cred > 0 && (i === 0 ? reached(f) : M.has(cid(f, t, i - 1)));
-        const y = 26;
-        const isHeart = heart && i === 3;
-
-        if (isHeart) {
-          const s = new THREE.Mesh(
-            new THREE.SphereGeometry(8, 20, 16),
-            new THREE.MeshStandardMaterial({
-              color: 0xe0453a, roughness: 0.4,
-              emissive: m ? 0x552200 : 0x220000,
-              emissiveIntensity: m ? 1 : 0.45
-            })
-          );
-          s.position.set(x, y, z);
-          s.castShadow = true;
-          s.userData = { tipo: "dot", id, av };
-          T.dyn.add(s);
-          const anel = new THREE.Mesh(
-            new THREE.TorusGeometry(9, 1, 6, 20),
-            new THREE.MeshBasicMaterial({ color: m ? 0xffd54a : 0xffffff })
-          );
-          anel.rotation.x = Math.PI / 2;
-          anel.position.set(x, y + 1, z);
-          T.dyn.add(anel);
-        } else {
-          const corD = m ? 0xe0a030 : av ? 0xffffff : 0xd0c8b0;
-          const s = new THREE.Mesh(
-            new THREE.SphereGeometry(av ? 7 : 5, 20, 16),
-            new THREE.MeshStandardMaterial({
-              color: corD, roughness: 0.5,
-              metalness: av ? 0.3 : 0.1,
-              emissive: av ? 0x4477cc : 0x000000,
-              emissiveIntensity: av ? 0.35 : 0
-            })
-          );
-          s.position.set(x, y, z);
-          s.castShadow = true;
-          s.userData = { tipo: "dot", id, av };
-          T.dyn.add(s);
-        }
-
-        if (av) {
-          const halo = new THREE.Mesh(
-            new THREE.TorusGeometry(11, 1.2, 8, 28),
-            new THREE.MeshBasicMaterial({ color: 0x1f6fd1, transparent: true, opacity: 0.75 })
-          );
-          halo.rotation.x = Math.PI / 2;
-          halo.position.set(x, y + 2, z);
-          halo.userData = { tipo: "dot", id, av };
-          T.dyn.add(halo);
-        }
-      }
-    });
-  }
-
-  // ---- decorações ----
-  function decorar(nome, x, y, z) {
-    const g = new THREE.Group();
-    g.position.set(x, y, z);
-    const tipo = {
-      "Túnel de Floresta": "floresta", "Cervo": "floresta",
-      "Castelo": "castelo", "Circo": "circo", "Nuvens": "nuvens",
-      "Sinaleiro": "sinaleiro", "Túnel de Vila": "vila",
-      "Pastora": "vila", "Fazenda": "fazenda", "Armazém": "armazem",
-      "Túnel de Cereal": "cereal", "Colina": "colina",
-      "Caixa 1": "floresta", "Caixa 2": "vila"
-    }[nome];
-
-    if (tipo === "floresta") {
-      for (let i = 0; i < 6; i++) {
-        const a = Math.random() * Math.PI * 2, r = Math.random() * 30;
-        addArvore(g, Math.cos(a) * r, Math.sin(a) * r);
-      }
-    } else if (tipo === "vila") {
-      for (let i = 0; i < 2; i++) {
-        const a = Math.random() * Math.PI * 2, r = Math.random() * 20;
-        addCasa(g, Math.cos(a) * r, Math.sin(a) * r);
-      }
-      for (let i = 0; i < 3; i++) {
-        const a = Math.random() * Math.PI * 2, r = 15 + Math.random() * 25;
-        addArvore(g, Math.cos(a) * r, Math.sin(a) * r);
-      }
-    } else if (tipo === "fazenda") {
-      addCasa(g, -8, 0); addCasa(g, 12, 6);
-      for (let i = 0; i < 6; i++) {
-        const a = Math.random() * Math.PI * 2, r = 15 + Math.random() * 25;
-        addCereal(g, Math.cos(a) * r, Math.sin(a) * r);
-      }
-    } else if (tipo === "castelo") {
-      addTorre(g, 0, 0, 42);
-    } else if (tipo === "circo") {
-      addTenda(g, 0, 0);
-    } else if (tipo === "nuvens") {
-      for (let i = 0; i < 6; i++) {
-        const a = Math.random() * Math.PI * 2, r = Math.random() * 30;
-        addNuvem(g, Math.cos(a) * r, Math.sin(a) * r);
-      }
-    } else if (tipo === "sinaleiro") {
-      addPoste(g, 0, 0);
-    } else if (tipo === "armazem") {
-      addArmazem(g, 0, 0);
-    } else if (tipo === "cereal") {
-      for (let i = 0; i < 10; i++) {
-        const a = Math.random() * Math.PI * 2, r = Math.random() * 32;
-        addCereal(g, Math.cos(a) * r, Math.sin(a) * r);
-      }
-    } else if (tipo === "colina") {
-      for (let i = 0; i < 5; i++) {
-        const a = Math.random() * Math.PI * 2, r = Math.random() * 26;
-        addArvore(g, Math.cos(a) * r, Math.sin(a) * r, true);
-      }
-    }
-    g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    T.dyn.add(g);
-  }
-
-  function addArvore(g, x, z, pequena) {
-    const s = pequena ? 0.7 : 1;
-    const tronco = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.5 * s, 1.5 * s, 6 * s, 6),
-      new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.9, flatShading: true })
-    );
-    tronco.position.set(x, 3 * s, z);
-    g.add(tronco);
-    const copa = new THREE.Mesh(
-      new THREE.ConeGeometry(6 * s, 14 * s, 6),
-      new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.85, flatShading: true })
-    );
-    copa.position.set(x, 10 * s, z);
-    g.add(copa);
-  }
-
-  function addCasa(g, x, z) {
-    const base = new THREE.Mesh(
-      new THREE.BoxGeometry(12, 9, 10),
-      new THREE.MeshStandardMaterial({ color: 0xfff7e8, roughness: 0.85, flatShading: true })
-    );
-    base.position.set(x, 4.5, z);
-    g.add(base);
-    const telhado = new THREE.Mesh(
-      new THREE.ConeGeometry(9, 6, 4),
-      new THREE.MeshStandardMaterial({ color: 0xb71c1c, roughness: 0.75, flatShading: true })
-    );
-    telhado.position.set(x, 12, z);
-    telhado.rotation.y = Math.PI / 4;
-    g.add(telhado);
-  }
-
-  function addTorre(g, x, z, alt) {
-    const base = new THREE.Mesh(
-      new THREE.CylinderGeometry(10, 12, alt, 8),
-      new THREE.MeshStandardMaterial({ color: 0xc8c0b0, roughness: 0.9, flatShading: true })
-    );
-    base.position.set(x, alt / 2, z);
-    g.add(base);
-    const topo = new THREE.Mesh(
-      new THREE.ConeGeometry(13, 12, 8),
-      new THREE.MeshStandardMaterial({ color: 0x8a2a2a, roughness: 0.8, flatShading: true })
-    );
-    topo.position.set(x, alt + 6, z);
-    g.add(topo);
-    // bandeirinha
-    const mastro = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.4, 0.4, 6, 5),
-      new THREE.MeshStandardMaterial({ color: 0x333333, flatShading: true })
-    );
-    mastro.position.set(x, alt + 15, z);
-    g.add(mastro);
-  }
-
-  function addTenda(g, x, z) {
-    const base = new THREE.Mesh(
-      new THREE.CylinderGeometry(10, 12, 3, 12),
-      new THREE.MeshStandardMaterial({ color: 0xf5e6c0, roughness: 0.9, flatShading: true })
-    );
-    base.position.set(x, 1.5, z);
-    g.add(base);
-    const topo = new THREE.Mesh(
-      new THREE.ConeGeometry(13, 16, 12),
-      new THREE.MeshStandardMaterial({ color: 0xb9483a, roughness: 0.8, flatShading: true })
-    );
-    topo.position.set(x, 11, z);
-    g.add(topo);
-    const mastro = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.6, 0.6, 6, 6),
-      new THREE.MeshStandardMaterial({ color: 0x333333, flatShading: true })
-    );
-    mastro.position.set(x, 22, z);
-    g.add(mastro);
-  }
-
-  function addNuvem(g, x, z) {
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, flatShading: true });
-    for (let i = 0; i < 3; i++) {
-      const r = 4 + Math.random() * 4;
-      const p = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), mat);
-      p.position.set(x + (Math.random() - 0.5) * 9, 11 + Math.random() * 6, z + (Math.random() - 0.5) * 9);
-      g.add(p);
-    }
-  }
-
-  function addPoste(g, x, z) {
-    const poste = new THREE.Mesh(
-      new THREE.CylinderGeometry(1, 1, 18, 6),
-      new THREE.MeshStandardMaterial({ color: 0x5a4a3a, flatShading: true })
-    );
-    poste.position.set(x, 9, z);
-    g.add(poste);
-    const sinal = new THREE.Mesh(
-      new THREE.SphereGeometry(3, 12, 10),
-      new THREE.MeshStandardMaterial({ color: 0xa35d4c, emissive: 0x551100, emissiveIntensity: 0.6, flatShading: true })
-    );
-    sinal.position.set(x, 19, z);
-    g.add(sinal);
-  }
-
-  function addArmazem(g, x, z) {
-    const caixa = new THREE.Mesh(
-      new THREE.BoxGeometry(20, 12, 16),
-      new THREE.MeshStandardMaterial({ color: 0x8b6b43, roughness: 0.9, flatShading: true })
-    );
-    caixa.position.set(x, 6, z);
-    g.add(caixa);
-    const telhado = new THREE.Mesh(
-      new THREE.ConeGeometry(14, 6, 4),
-      new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 0.9, flatShading: true })
-    );
-    telhado.position.set(x, 15, z);
-    telhado.rotation.y = Math.PI / 4;
-    g.add(telhado);
-  }
-
-  function addCereal(g, x, z) {
-    const c = new THREE.Mesh(
-      new THREE.ConeGeometry(1.2, 6, 4),
-      new THREE.MeshStandardMaterial({ color: 0xd9b048, roughness: 0.85, flatShading: true })
-    );
-    c.position.set(x, 3, z);
-    g.add(c);
-  }
-
-  function focar3D(px, py, animar) {
-    if (!T) return;
-    const target = new THREE.Vector3(px - CX, 18, py - CY);
-    if (!animar) {
-      const off = T.camera.position.clone().sub(T.controls.target);
-      T.controls.target.copy(target);
-      T.camera.position.copy(target).add(off);
-      T.controls.update();
-      return;
-    }
-    const startTarget = T.controls.target.clone();
-    const startCam = T.camera.position.clone();
-    const camOffset = startCam.clone().sub(startTarget);
-    const t0 = performance.now();
-    const dur = 480;
-    const step = now => {
-      const k = Math.min(1, (now - t0) / dur);
-      const e = 1 - Math.pow(1 - k, 3);
-      const nt = startTarget.clone().lerp(target, e);
-      T.controls.target.copy(nt);
-      T.camera.position.copy(nt).add(camOffset);
-      T.controls.update();
-      if (k < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  }
-
-  function centrar(animar) {
-    if (!focoPt) return;
-    focar3D(focoPt[0], focoPt[1], animar);
-  }
-
-  // ===== UI =====
   function show(w) {
     $("out").classList.toggle("hide", w !== "out");
     $("in").classList.toggle("hide", w !== "in");
     $("board").classList.toggle("hide", w !== "board");
     document.querySelector("main").classList.toggle("wide", w === "board");
     document.body.classList.toggle("emmapa", w === "board");
-    if (w === "board") setTimeout(() => window.dispatchEvent(new Event("resize")), 30);
   }
 
   async function render(session) {
@@ -778,15 +311,8 @@
     $("pont").value = ""; $("prev").textContent = "";
     verTodas = false;
     show("board");
-    if (!T) {
-      initThree();
-      T.camera.position.set(150, 950, 900);
-      T.controls.target.set(0, 0, 0);
-      T.controls.update();
-    }
     draw();
-    abrirPainel(null);
-    centrar(false);
+    abrirPainel(null); medir(); V.span = 300; centrar(false);
     const { data, error } = await sb.from("plays").select("number,created_at,data").eq("campaign_id", c.id).order("number");
     if (error) { $("msg").textContent = "Erro ao ler partidas: " + error.message; return; }
     plays = data;
@@ -800,24 +326,45 @@
     const reached = h => h === "Andarilho" || SEGS.some(([f, t, n]) => t === h && M.has(cid(f, t, n - 1)));
     const canEdit = cur.owner_id === uid;
     const cred = plays.reduce((t, q) => t + ((q.data && q.data.circulos) || 0), 0) - order.length;
-
-    // Ponto focal (próximo disponível ou último marcado)
+    const svg = $("din");
+    svg.innerHTML = "";
+    SEGS.forEach(([f, t, n], si) => {
+      const pts = [POS[f]].concat(CP[si], [POS[t]]).map(q => q[0] + "," + q[1]).join(" ");
+      el("polyline", { points: pts, class: "trail2" }, svg);
+      el("polyline", { points: pts, class: "trail" }, svg);
+    });
     let focoAv = null; const PT = {};
     SEGS.forEach(([f, t, n], si) => {
+      const heart = HEART.has(f + ">" + t);
       for (let i = 0; i < n; i++) {
-        const id = cid(f, t, i);
-        const m = M.has(id);
+        const [x, y] = CP[si][i], id = cid(f, t, i), m = M.has(id);
         const av = !m && cred > 0 && (i === 0 ? reached(f) : M.has(cid(f, t, i - 1)));
-        PT[id] = CP[si][i];
-        if (av && !focoAv) focoAv = CP[si][i];
+        const st = m ? " m" : av ? " a" : "";
+        PT[id] = [x, y]; if (av && !focoAv) focoAv = [x, y];
+        if (av) el("circle", { cx: x, cy: y, r: heart && i === 3 ? 14 : 11, class: "halo" }, svg);
+        if (heart && i === 3) { el("circle", { cx: x, cy: y, r: 8, class: "heart" + st }, svg); el("text", { x: x, y: y + 4, class: "hx" }, svg, "♥"); }
+        else el("circle", { cx: x, cy: y, r: av ? 7 : 5, class: "dot" + st }, svg);
+        if (av && canEdit) { const hit = el("circle", { cx: x, cy: y, r: 18, fill: "transparent", style: "cursor:pointer" }, svg); hit.onclick = () => { if (moveu) return; marcar(id); }; }
       }
     });
     focoPt = focoAv || PT[order[order.length - 1]] || POS["Andarilho"];
-
-    // Constrói 3D
-    if (T) buildMap(M, reached, cred, canEdit);
-
-    // UI
+    Object.keys(POS).forEach(h => {
+      const [x, y] = POS[h];
+      if (h === "Andarilho") {
+        el("circle", { cx: x, cy: y, r: 11, fill: "#3b5ba8", stroke: "#fff", "stroke-width": 2 }, svg);
+        el("text", { x: x, y: y + 32, class: "lbl" }, svg, "Andarilho");
+        return;
+      }
+      const pts = [[56,0],[28,48.5],[-28,48.5],[-56,0],[-28,-48.5],[28,-48.5]].map(q => (x + q[0]) + "," + (y + q[1])).join(" ");
+      const ok = reached(h);
+      el("polygon", { points: [[56,5],[28,53.5],[-28,53.5],[-56,5],[-28,-43.5],[28,-43.5]].map(q => (x + q[0]) + "," + (y + q[1])).join(" "), class: "hexsh" }, svg);
+      el("polygon", { points: pts, class: "hex" + (ok ? "" : " l"), style: ok ? "fill:" + (BIOMA[h] || "#a8761f") : "" }, svg);
+      const pin = [[48,0],[24,41.5],[-24,41.5],[-48,0],[-24,-41.5],[24,-41.5]].map(q => (x + q[0]) + "," + (y + q[1])).join(" ");
+      el("polygon", { points: pin, class: "hexin" }, svg);
+      el("text", { x: x, y: y - 31, class: "ic" }, svg, reached(h) ? "👑" : "🔒");
+      const ls = rotulo(h), y0 = y - (ls.length - 1) * 6.75 + 4;
+      ls.forEach((tx, i) => el("text", { x: x, y: y0 + i * 13.5, class: "t" }, svg, tx));
+    });
     const hearts = order.filter(id => HEART.has(id.split(":")[0]) && id.endsWith(":3")).length;
     const desb = Object.keys(POS).filter(h => h !== "Andarilho" && reached(h)).map(nomeH);
     $("info").innerHTML = "";
@@ -834,17 +381,13 @@
     $("cv").classList.toggle("hide", !canEdit);
     $("sair").classList.toggle("hide", canEdit);
     $("delcamp").classList.toggle("hide", !canEdit);
-    if (canEdit && cred <= 0) {
-      const l3 = document.createElement("p");
-      l3.textContent = plays.length ? "Sem círculos disponíveis. Registre uma nova partida." : "Registre uma partida pra ganhar círculos.";
-      $("info").appendChild(l3);
-    }
+    if (canEdit && cred <= 0) { const l3 = document.createElement("p"); l3.textContent = plays.length ? "Sem círculos disponíveis. Registre uma nova partida." : "Registre uma partida pra ganhar círculos."; $("info").appendChild(l3); }
     const CONQ = ["Castelo","Circo","Nuvens","Cervo","Fazenda","Túnel de Floresta","Túnel de Cereal","Colina","Pastora","Sinaleiro","Túnel de Vila","Armazém"];
-    const CXARR = ["Local Lanç. de Balões","Canteiro de Obras","Festival de Bandeiras","Cabana na Floresta","Coração Dourado","Porto","Festival da Colheita","Desejo do Coração","Locomotiva","Na Estrada p/o Sucesso","Corações Vermelhos","Navio","Estação de Trem","Torre de Vigia"];
+    const CX = ["Local Lanç. de Balões","Canteiro de Obras","Festival de Bandeiras","Cabana na Floresta","Coração Dourado","Porto","Festival da Colheita","Desejo do Coração","Locomotiva","Na Estrada p/o Sucesso","Corações Vermelhos","Navio","Estação de Trem","Torre de Vigia"];
     const item = (ul, nome, on, dis, fn) => { const li = document.createElement("li"), lb = document.createElement("label"), ck = document.createElement("input"); ck.type = "checkbox"; ck.checked = on; ck.disabled = dis; if (fn) ck.onchange = fn; lb.appendChild(ck); lb.appendChild(document.createTextNode(nome)); li.appendChild(lb); ul.appendChild(li); };
     $("conq").innerHTML = ""; $("cx").innerHTML = "";
     CONQ.forEach(n => item($("conq"), n, reached(n), true));
-    CXARR.forEach(n => { const auto = n === "Corações Vermelhos"; item($("cx"), n, auto ? hearts > 0 : caixas.includes(n), auto || !canEdit, () => alternarCaixa(n)); });
+    CX.forEach(n => { const auto = n === "Corações Vermelhos"; item($("cx"), n, auto ? hearts > 0 : caixas.includes(n), auto || !canEdit, () => alternarCaixa(n)); });
     $("hist").innerHTML = "";
     const lista = plays.slice().sort((a, b) => b.number - a.number);
     const vis = verTodas ? lista : lista.slice(0, 5);
@@ -855,14 +398,7 @@
     vis.forEach(q => {
       const li = document.createElement("li");
       li.textContent = "Partida " + q.number + " (" + (q.created_at ? new Date(q.created_at).toLocaleDateString("pt-BR") : "") + "): " + q.data.pontuacao + " pts, " + q.data.titulo + " (+" + q.data.circulos + ") ";
-      if (canEdit) {
-        const bt = document.createElement("button");
-        bt.className = "sec";
-        bt.style.cssText = "margin:0 0 0 .4rem;padding:.2rem .6rem;font-size:.8rem";
-        bt.textContent = "Excluir";
-        bt.onclick = () => excluir(q, cred);
-        li.appendChild(bt);
-      }
+      if (canEdit) { const bt = document.createElement("button"); bt.className = "sec"; bt.style.cssText = "margin:0 0 0 .4rem;padding:.2rem .6rem;font-size:.8rem"; bt.textContent = "Excluir"; bt.onclick = () => excluir(q, cred); li.appendChild(bt); }
       $("hist").appendChild(li);
     });
   }
@@ -894,7 +430,6 @@
     $("msg").textContent = "";
     draw();
   }
-
   let convites = [];
   const linkConvite = t => location.origin + location.pathname + "?convite=" + t;
   async function copiar(txt) {
@@ -942,11 +477,11 @@
   };
   $("delcamp").onclick = async () => {
     if (!cur || cur.owner_id !== uid) return;
-    if (!confirm('Excluir a campanha "' + cur.name + '"?\n\nIsso apaga todas as partidas, marcações e convites. Não dá pra desfazer.')) return;
+    if (!confirm('Excluir a campanha "' + cur.name + '"?\n\nIsso apaga todas as partidas, marcações e convites, e os convidados perdem o acesso. Não dá pra desfazer.')) return;
     const { data, error } = await sb.from("campaigns").delete().eq("id", cur.id).select("id");
     if (error) { $("msg").textContent = "Erro ao excluir: " + error.message; return; }
     if (!data || !data.length) { $("msg").textContent = "Não foi possível excluir a campanha."; return; }
-    cur = null; show("in"); await carregar();
+    cur = null; $("msg").textContent = "Campanha excluída."; show("in"); await carregar();
     $("msg").textContent = "Campanha excluída.";
   };
   $("histmais").onclick = () => { verTodas = !verTodas; draw(); };
@@ -963,11 +498,11 @@
     if (error) { $("msg").textContent = "Erro ao registrar: " + error.message; return; }
     plays.push(nova);
     $("pont").value = ""; $("prev").textContent = ""; $("msg").textContent = "";
-    draw(); abrirPainel(null); centrar(true);
+    draw();
+    abrirPainel(null); centrar(true);
   };
   $("undo").onclick = async () => { if (!order.length) return; const antes = order.slice(); order.pop(); draw(); centrar(true); await salvar(antes); };
   $("back").onclick = async () => { cur = null; $("msg").textContent = ""; show("in"); await carregar(); };
-  $("center").onclick = () => centrar(true);
 
   $("criar").onclick = async () => {
     $("msg").textContent = "";
@@ -989,6 +524,85 @@
   };
   $("logout").onclick = () => sb.auth.signOut();
 
+  // ===== Câmera do mapa (arrastar, pinça, scroll) =====
+  const V = { cx: 705, cy: 400, span: 300 };
+  const X0 = 150, Y0 = -190, X1 = 1250, Y1 = 860, BASE = 2.5;
+  let anim = 0, quadro = 0, tamC = [360, 640];
+  const lim = (v, a, b) => Math.max(a, Math.min(b, v));
+  const tam = () => tamC;
+  function medir() { const r = $("mapa").getBoundingClientRect(); tamC = [r.width || 360, r.height || 640]; }
+  function aplicarV() {
+    const [cw, ch] = tamC, k = Math.min(cw, ch) / V.span, sc = k / BASE;
+    const tx = cw / 2 - (V.cx - X0) * k, ty = ch / 2 - (V.cy - Y0) * k;
+    $("svg").style.transform = "translate3d(" + tx.toFixed(2) + "px," + ty.toFixed(2) + "px,0) scale(" + sc.toFixed(5) + ")";
+  }
+  function limitar() {
+    const [cw, ch] = tamC, m = Math.min(cw, ch);
+    V.span = lim(V.span, 120, Math.max(120, Math.min((X1 - X0) * m / cw, (Y1 - Y0) * m / ch)));
+    const hw = V.span * cw / m / 2, hh = V.span * ch / m / 2;
+    V.cx = hw * 2 >= X1 - X0 ? (X0 + X1) / 2 : lim(V.cx, X0 + hw, X1 - hw);
+    V.cy = hh * 2 >= Y1 - Y0 ? (Y0 + Y1) / 2 : lim(V.cy, Y0 + hh, Y1 - hh);
+  }
+  function pedir() { if (!quadro) quadro = requestAnimationFrame(() => { quadro = 0; aplicarV(); }); }
+  function irPara(a, animar) {
+    cancelAnimationFrame(anim);
+    if (!animar) { Object.assign(V, a); limitar(); aplicarV(); return; }
+    const i = { cx: V.cx, cy: V.cy, span: V.span }, t0 = performance.now(), dur = 450;
+    const passo = now => {
+      const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      V.cx = i.cx + (a.cx - i.cx) * e; V.cy = i.cy + (a.cy - i.cy) * e; V.span = i.span + (a.span - i.span) * e;
+      limitar(); aplicarV();
+      if (k < 1) anim = requestAnimationFrame(passo);
+    };
+    anim = requestAnimationFrame(passo);
+  }
+  function centrar(animar, zoom) {
+    if (!focoPt) return;
+    irPara({ cx: focoPt[0], cy: focoPt[1], span: zoom || V.span }, animar);
+  }
+  (function () {
+    const m = $("mapa"), pt = new Map();
+    let ini = null, d0 = 0, s0 = 0;
+    const un = () => { const [cw, ch] = tam(); return V.span / Math.min(cw, ch); };
+    m.addEventListener("pointerdown", e => {
+      cancelAnimationFrame(anim);
+      pt.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pt.size === 1) { ini = { x: e.clientX, y: e.clientY }; moveu = false; }
+      if (pt.size === 2) { const [a, b] = [...pt.values()]; d0 = Math.hypot(a.x - b.x, a.y - b.y); s0 = V.span; moveu = true; }
+    });
+    window.addEventListener("pointermove", e => {
+      const p = pt.get(e.pointerId);
+      if (!p) return;
+      if (pt.size === 1) {
+        if (!moveu && Math.hypot(e.clientX - ini.x, e.clientY - ini.y) < 6) return;
+        moveu = true;
+        const k = un(); V.cx -= (e.clientX - p.x) * k; V.cy -= (e.clientY - p.y) * k;
+      }
+      p.x = e.clientX; p.y = e.clientY;
+      if (pt.size === 2) { const [a, b] = [...pt.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (d0 > 0 && d > 0) V.span = s0 * d0 / d; }
+      limitar(); pedir();
+    });
+    const fim = e => {
+      pt.delete(e.pointerId);
+      if (pt.size === 1) { const r = [...pt.values()][0]; ini = { x: r.x, y: r.y }; }
+      if (!pt.size) setTimeout(() => { moveu = false; }, 0);
+    };
+    window.addEventListener("pointerup", fim);
+    window.addEventListener("pointercancel", fim);
+    m.addEventListener("wheel", e => {
+      e.preventDefault(); cancelAnimationFrame(anim);
+      const r = m.getBoundingClientRect(), [cw, ch] = tam(), k0 = un();
+      const wx = V.cx + (e.clientX - r.left - cw / 2) * k0, wy = V.cy + (e.clientY - r.top - ch / 2) * k0;
+      V.span = V.span * Math.exp(e.deltaY * 0.0012); limitar();
+      const k1 = un();
+      V.cx = wx - (e.clientX - r.left - cw / 2) * k1; V.cy = wy - (e.clientY - r.top - ch / 2) * k1;
+      limitar(); pedir();
+    }, { passive: false });
+    m.addEventListener("click", () => { if (!moveu) abrirPainel(null); });
+    window.addEventListener("resize", () => { if (cur) { medir(); limitar(); aplicarV(); } });
+  })();
+  $("center").onclick = () => centrar(true, 300);
+
   // ===== Painéis laterais =====
   let painelAtual = null;
   function abrirPainel(id) {
@@ -1001,7 +615,7 @@
   $("fechar").onclick = () => abrirPainel(null);
   $("chipDisp").onclick = () => { if (cur && cur.owner_id === uid) abrirPainel("p-reg"); };
 
-  // toast de mensagens
+  // mensagens viram "toast" no mapa e somem sozinhas
   (function () {
     let tm;
     new MutationObserver(() => {

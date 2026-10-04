@@ -14,7 +14,8 @@
   p { margin: .5rem 0; opacity: .8; }
   button { margin-top: 1rem; padding: .7rem 1.2rem; font: inherit; border: 1px solid var(--ac); background: var(--ac); color: var(--bg); border-radius: 8px; cursor: pointer; }
   button.sec { background: transparent; color: var(--fg); border-color: var(--bd); }
-  .hide { display: none; }
+  button.perigo { background: transparent; color: #b3412e; border-color: #b3412e; }
+  .hide { display: none !important; }
   .form { display: flex; flex-direction: column; gap: .5rem; margin-top: 1rem; text-align: left; }
   input { font: inherit; padding: .6rem; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); color: var(--fg); }
   ul { list-style: none; padding: 0; margin: 1rem 0 0; text-align: left; }
@@ -91,6 +92,7 @@
     <button class="sec hide" id="sair">Sair desta campanha</button>
     <button class="sec" id="undo">Desfazer último</button>
     <button class="sec" id="back">Voltar</button>
+    <button class="perigo hide" id="delcamp">Excluir campanha</button>
   </section>
 
   <p id="msg"></p>
@@ -253,6 +255,7 @@
     $("rp").classList.toggle("hide", !canEdit);
     $("cv").classList.toggle("hide", !canEdit);
     $("sair").classList.toggle("hide", canEdit);
+    $("delcamp").classList.toggle("hide", !canEdit);
     if (canEdit && cred <= 0) { const l3 = document.createElement("p"); l3.textContent = plays.length ? "Sem círculos disponíveis. Registre uma nova partida." : "Registre uma partida pra ganhar círculos."; $("info").appendChild(l3); }
     const CONQ = ["Castelo","Circo","Nuvens","Cervo","Fazenda","Túnel de Floresta","Túnel de Cereal","Colina","Pastora","Sinaleiro","Túnel de Vila","Armazém"];
     const CX = ["Local Lanç. de Balões","Canteiro de Obras","Festival de Bandeiras","Cabana na Floresta","Coração Dourado","Porto","Festival da Colheita","Desejo do Coração","Locomotiva","Na Estrada p/o Sucesso","Corações Vermelhos","Navio","Estação de Trem","Torre de Vigia"];
@@ -340,6 +343,15 @@
     const { error } = await sb.from("campaign_members").delete().eq("campaign_id", cur.id).eq("user_id", uid);
     if (error) { $("msg").textContent = "Erro ao sair: " + error.message; return; }
     cur = null; $("msg").textContent = ""; show("in"); await carregar();
+  };
+  $("delcamp").onclick = async () => {
+    if (!cur || cur.owner_id !== uid) return;
+    if (!confirm('Excluir a campanha "' + cur.name + '"?\n\nIsso apaga todas as partidas, marcações e convites, e os convidados perdem o acesso. Não dá pra desfazer.')) return;
+    const { data, error } = await sb.from("campaigns").delete().eq("id", cur.id).select("id");
+    if (error) { $("msg").textContent = "Erro ao excluir: " + error.message; return; }
+    if (!data || !data.length) { $("msg").textContent = "Não foi possível excluir a campanha."; return; }
+    cur = null; $("msg").textContent = "Campanha excluída."; show("in"); await carregar();
+    $("msg").textContent = "Campanha excluída.";
   };
   $("pont").oninput = () => {
     const v = parseInt($("pont").value, 10);

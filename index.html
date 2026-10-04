@@ -31,6 +31,8 @@
   .heart { fill: #e0453a; stroke: #fff; stroke-width: 1.5; }
   .heart.m { stroke: #ffd54a; stroke-width: 3; }
   .heart.a { stroke: #1f6fd1; stroke-width: 3; animation: pl 1.1s infinite; }
+  .ic { font-size: 13px; text-anchor: middle; pointer-events: none; }
+  #hist li { padding: .3rem .6rem; font-size: .85rem; margin-bottom: .25rem; }
   .hx { fill: #fff; font-size: 11px; text-anchor: middle; pointer-events: none; }
   .hex { fill: #46443f; stroke: #2b2a26; stroke-width: 2; }
   .hex.u { fill: #a8761f; }
@@ -75,7 +77,9 @@
       <p id="prev" style="margin:0"></p>
       <button id="reg">Registrar partida</button>
     </div>
+    <h3 id="ht" class="hide">Partidas</h3>
     <ul id="hist"></ul>
+    <button class="sec hide" id="histmais">Ver todas</button>
     <h3>Suas Conquistas</h3>
     <ul id="conq" class="g"></ul>
     <h3>Caixas</h3>
@@ -155,7 +159,7 @@
   const cid = (f, t, i) => f + ">" + t + ":" + i;
   const TAB = [[400,"Imperatriz",15],[375,"Príncipe Herdeiro",15],[350,"Baronesa",15],[340,"Magnata",14],[330,"Conselheiro",14],[320,"Prefeito",13],[310,"Fabricante",13],[300,"Balonista",12],[290,"Diplomata",12],[280,"Médico",11],[270,"Astrônomo",11],[260,"Inventor",10],[250,"Arquiteto",10],[240,"Comerciante",9],[230,"Fotógrafo",9],[220,"Chefe de Estação",8],[210,"Chefe do Porto",8],[200,"Capitão",7],[190,"Mestre de Cerimônias",7],[180,"Engenheiro",6],[170,"Esposa de Fazendeiro",6],[160,"Guarda Florestal",5],[150,"Proprietária",5],[140,"Atriz",4],[130,"Vigia Noturno",4],[120,"Cocheiro",3],[110,"Pescadora",3],[100,"Jornaleiro",2],[0,"Vagabundo",1]];
   const linha = pt => TAB.find(r => pt >= r[0]);
-  let plays = [], caixas = [];
+  let plays = [], caixas = [], verTodas = false;
   const nomeH = h => h.startsWith("Caixa") ? h : "Carta de Conquista " + h;
 
   function show(w) {
@@ -207,8 +211,10 @@
     $("bt").textContent = c.name;
     $("msg").textContent = c.owner_id === uid ? "" : "Você é convidado: só visualiza.";
     $("pont").value = ""; $("prev").textContent = "";
+    verTodas = false;
     show("board");
     draw();
+    $("bt").scrollIntoView({ behavior: "smooth", block: "start" });
     const { data, error } = await sb.from("plays").select("number,created_at,data").eq("campaign_id", c.id).order("number");
     if (error) { $("msg").textContent = "Erro ao ler partidas: " + error.message; return; }
     plays = data;
@@ -230,8 +236,8 @@
         const av = !m && cred > 0 && (i === 0 ? reached(f) : M.has(cid(f, t, i - 1)));
         const st = m ? " m" : av ? " a" : "";
         if (heart && i === 3) { el("circle", { cx: x, cy: y, r: 8, class: "heart" + st }, svg); el("text", { x: x, y: y + 4, class: "hx" }, svg, "♥"); }
-        else el("circle", { cx: x, cy: y, r: 5, class: "dot" + st }, svg);
-        if (av && canEdit) { const hit = el("circle", { cx: x, cy: y, r: 12, fill: "transparent", style: "cursor:pointer" }, svg); hit.onclick = () => marcar(id); }
+        else el("circle", { cx: x, cy: y, r: av ? 7 : 5, class: "dot" + st }, svg);
+        if (av && canEdit) { const hit = el("circle", { cx: x, cy: y, r: 18, fill: "transparent", style: "cursor:pointer" }, svg); hit.onclick = () => marcar(id); }
       }
     });
     Object.keys(POS).forEach(h => {
@@ -243,6 +249,7 @@
       }
       const pts = [[56,0],[28,48.5],[-28,48.5],[-56,0],[-28,-48.5],[28,-48.5]].map(q => (x + q[0]) + "," + (y + q[1])).join(" ");
       el("polygon", { points: pts, class: "hex" + (reached(h) ? " u" : "") }, svg);
+      el("text", { x: x, y: y - 31, class: "ic" }, svg, reached(h) ? "👑" : "🔒");
       const ls = rotulo(h), y0 = y - (ls.length - 1) * 6.75 + 4;
       ls.forEach((tx, i) => el("text", { x: x, y: y0 + i * 13.5, class: "t" }, svg, tx));
     });
@@ -264,7 +271,13 @@
     CONQ.forEach(n => item($("conq"), n, reached(n), true));
     CX.forEach(n => { const auto = n === "Corações Vermelhos"; item($("cx"), n, auto ? hearts > 0 : caixas.includes(n), auto || !canEdit, () => alternarCaixa(n)); });
     $("hist").innerHTML = "";
-    plays.forEach(q => {
+    const lista = plays.slice().sort((a, b) => b.number - a.number);
+    const vis = verTodas ? lista : lista.slice(0, 5);
+    $("ht").textContent = "Partidas (" + plays.length + ")";
+    $("ht").classList.toggle("hide", !plays.length);
+    $("histmais").classList.toggle("hide", plays.length <= 5);
+    $("histmais").textContent = verTodas ? "Ver só as últimas 5" : "Ver todas (" + plays.length + ")";
+    vis.forEach(q => {
       const li = document.createElement("li");
       li.textContent = "Partida " + q.number + " (" + (q.created_at ? new Date(q.created_at).toLocaleDateString("pt-BR") : "") + "): " + q.data.pontuacao + " pts, " + q.data.titulo + " (+" + q.data.circulos + ") ";
       if (canEdit) { const bt = document.createElement("button"); bt.className = "sec"; bt.style.cssText = "margin:0 0 0 .4rem;padding:.2rem .6rem;font-size:.8rem"; bt.textContent = "Excluir"; bt.onclick = () => excluir(q, cred); li.appendChild(bt); }
@@ -353,6 +366,7 @@
     cur = null; $("msg").textContent = "Campanha excluída."; show("in"); await carregar();
     $("msg").textContent = "Campanha excluída.";
   };
+  $("histmais").onclick = () => { verTodas = !verTodas; draw(); };
   $("pont").oninput = () => {
     const v = parseInt($("pont").value, 10);
     $("prev").textContent = isNaN(v) || v < 0 ? "" : linha(v)[0] + " " + linha(v)[1] + ": " + linha(v)[2] + " círculo(s)";

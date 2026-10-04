@@ -179,7 +179,7 @@
 
       <div class="pn" id="p-mais">
         <h3>Mais opções</h3>
-        <p class="ajuda">Arraste o mapa pra explorar. Pinça (ou role o mouse) pra aproximar. O botão 🎯 volta pra trilha. O botão 🧊 3D mostra a mesma trilha em relevo (só visualização: marque os círculos no 2D). No 3D, arraste pra mover e use o botão direito do mouse pra girar.</p>
+        <p class="ajuda">Arraste o mapa pra explorar. Pinça (ou role o mouse) pra aproximar. O botão 🎯 volta pra trilha. O botão 🧊 3D mostra a mesma trilha em relevo (só visualização: marque os círculos no 2D). No 3D, arraste pra mover e use o botão direito do mouse pra girar. Toque no mapa pra mostrar ou esconder os nomes.</p>
         <button class="sec hide" id="sair">Sair desta campanha</button>
         <button class="perigo hide" id="delcamp">Excluir campanha</button>
       </div>
@@ -640,7 +640,7 @@
     $("msg").textContent = T ? "" : "Carregando 3D…";
     garantirThree().then(() => {
       if (!modo3d) return;
-      iniciar3D(); $("msg").textContent = "";
+      iniciar3D(); $("msg").textContent = "Toque no mapa pra mostrar ou esconder os nomes.";
       T.atualizar(); T.foco(false); T.resize();
     }).catch(() => { $("msg").textContent = "Não consegui carregar o 3D (sem internet?)."; alternar3D(false); });
   }
@@ -649,14 +649,14 @@
   function iniciar3D() {
     if (T) return;
     const host = $("mapa3d"), K = 1 / 56, w3 = p => [(p[0] - 700) * K, (p[1] - 435) * K], PH = 0.3;
-    const scene = new THREE.Scene(); scene.background = new THREE.Color(0xaacfef); scene.fog = new THREE.Fog(0xaacfef, 26, 60);
+    const scene = new THREE.Scene(); scene.background = new THREE.Color(0xaacfef); scene.fog = new THREE.Fog(0xaacfef, 22, 50);
     const cam = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
     const rd = new THREE.WebGLRenderer({ antialias: true }); rd.setPixelRatio(Math.min(devicePixelRatio, 2));
     rd.toneMapping = THREE.ACESFilmicToneMapping; rd.toneMappingExposure = 0.95;
     rd.shadowMap.enabled = true; rd.shadowMap.type = THREE.PCFSoftShadowMap; rd.shadowMap.autoUpdate = false;
     host.appendChild(rd.domElement);
     const ctl = new THREE.OrbitControls(cam, rd.domElement);
-    ctl.screenSpacePanning = false; ctl.panSpeed = 1.2; ctl.minDistance = 4; ctl.maxDistance = 40; ctl.maxPolarAngle = Math.PI / 2.2;
+    ctl.screenSpacePanning = false; ctl.panSpeed = 1.2; ctl.minDistance = 4; ctl.maxDistance = 28; ctl.maxPolarAngle = Math.PI / 2.2;
     ctl.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
     ctl.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
     scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 0.6));
@@ -670,18 +670,20 @@
     const put = (g, m, x, y, z, sx, sy, sz, sh) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); if (sx) o.scale.set(sx, sy, sz); o.castShadow = o.receiveShadow = true; scene.add(o); return o; };
 
     // chão da trilha + terreno em relevo (mesmo ruído do exemplo)
-    put(new THREE.BoxGeometry(34, PH, 32), mt(0x8fd16a), 0, PH / 2, -1);
+    put(new THREE.BoxGeometry(160, PH, 170), mt(0x8fd16a), 0, PH / 2, -8);
     const cir = [];
     SEGS.forEach(([f, t, n], si) => CP[si].forEach((p, i) => { const [x, z] = w3(p); cir.push({ id: cid(f, t, i), x, z, heart: HEART.has(f + ">" + t) && i === 3 }); }));
     const npos = Object.keys(POS).map(h => w3(POS[h]));
     const base = (q, r) => (Math.sin(q * 0.7) * Math.cos(r * 0.9) + Math.sin(q * 1.3 + r * 1.1) * 0.5 + Math.cos(q * 0.4 - r * 1.7) * 0.3 + 1.8) / 3.6;
     let sd = 11; const rnd = () => { sd = (sd * 1664525 + 1013904223) % 4294967296; return sd / 4294967296; };
     const trees = [], houses = [];
-    for (let q = -11; q <= 11; q++) for (let r = -16; r <= 16; r++) {
+    const tl = [];
+    for (let q = -41; q <= 41; q++) for (let r = -85; r <= 85; r++) {
       const x = 1.5 * q, z = 1.7320508 * (r + q / 2);
-      if (Math.abs(x) > 16 || z < -15 || z > 12) continue;
-      if (npos.some(n => Math.hypot(n[0] - x, n[1] - z) < 1.75)) continue;
-      const d = Math.min(...cir.map(c => Math.hypot(c.x - x, c.z - z)));
+      if (Math.abs(x) > 62 || z < -72 || z > 58) continue;
+      const perto = Math.abs(x) < 14 && z > -12 && z < 11;
+      if (perto && npos.some(n => Math.hypot(n[0] - x, n[1] - z) < 1.75)) continue;
+      const d = perto ? Math.min(...cir.map(c => Math.hypot(c.x - x, c.z - z))) : 99;
       if (d < 0.95) continue;
       const b = base(q, r), e = Math.min(1, (d - 0.95) / 2);
       let h = 0.35 + b * 1.1 * e, col = 0x6ab04c, tp = "g";
@@ -690,12 +692,15 @@
       else if (b < 0.6) { if (rnd() < 0.15) { col = 0xc49a6c; tp = "v"; } }
       else if (b < 0.8) { col = 0x2e7d32; tp = "f"; }
       else { col = 0x8d8d8d; tp = "r"; }
-      put(hexG, mt(col), x, h / 2, z, 1, h, 1);
+      tl.push([x, h, z, col]);
       if (tp === "f") for (let i = 0, k = 2 + Math.floor(rnd() * 3); i < k; i++) { const a = rnd() * 6.28, rr = rnd() * 0.5; trees.push([x + Math.cos(a) * rr, h, z + Math.sin(a) * rr]); }
       if (tp === "v") houses.push([x + (rnd() - 0.5) * 0.4, h, z + (rnd() - 0.5) * 0.4]);
     }
     const dm = new THREE.Object3D();
-    const inst = (g, m, list, dy) => { const im = new THREE.InstancedMesh(g, m, Math.max(1, list.length)); list.forEach((p, i) => { dm.position.set(p[0], p[1] + dy, p[2]); dm.rotation.y = i; dm.updateMatrix(); im.setMatrixAt(i, dm.matrix); }); im.count = list.length; im.castShadow = true; scene.add(im); };
+    const tm = new THREE.InstancedMesh(hexG, new THREE.MeshStandardMaterial({ roughness: 0.8 }), tl.length), cc = new THREE.Color();
+    tl.forEach((t, i) => { dm.position.set(t[0], t[1] / 2, t[2]); dm.rotation.set(0, 0, 0); dm.scale.set(1, t[1], 1); dm.updateMatrix(); tm.setMatrixAt(i, dm.matrix); tm.setColorAt(i, cc.setHex(t[3])); });
+    dm.scale.set(1, 1, 1); tm.frustumCulled = false; tm.castShadow = tm.receiveShadow = true; scene.add(tm);
+    const inst = (g, m, list, dy) => { const im = new THREE.InstancedMesh(g, m, Math.max(1, list.length)); list.forEach((p, i) => { dm.position.set(p[0], p[1] + dy, p[2]); dm.rotation.y = i; dm.updateMatrix(); im.setMatrixAt(i, dm.matrix); }); im.count = list.length; im.castShadow = true; im.frustumCulled = false; scene.add(im); };
     inst(new THREE.CylinderGeometry(0.05, 0.05, 0.3, 6), mt(0x5d4037, 0.9), trees, 0.15);
     inst(new THREE.ConeGeometry(0.25, 0.6, 8), mt(0x2e7d32), trees, 0.5);
     inst(new THREE.BoxGeometry(0.3, 0.25, 0.3), mt(0xffffff), houses, 0.125);
@@ -710,7 +715,7 @@
 
     // hexágonos da trilha
     const BG = { start: 0, box: 0xc49a6c };
-    const mkLabel = () => { const cv = document.createElement("canvas"); cv.width = 380; cv.height = 80; const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthTest: false })); s.scale.set(2.8, 0.59, 1); s.renderOrder = 10; s.userData.cv = cv; scene.add(s); return s; };
+    const mkLabel = () => { const cv = document.createElement("canvas"); cv.width = 380; cv.height = 80; const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthTest: false })); s.scale.set(2.8, 0.59, 1); s.renderOrder = 10; s.visible = false; s.userData.cv = cv; scene.add(s); return s; };
     const setLabel = (s, txt) => { const cv = s.userData.cv, g = cv.getContext("2d"); g.clearRect(0, 0, 380, 80); g.fillStyle = "rgba(0,0,0,.6)"; g.fillRect(6, 6, 368, 68); g.fillStyle = "#fff"; g.font = "bold 34px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(txt, 190, 42); s.material.map.needsUpdate = true; };
     const crist = new THREE.OctahedronGeometry(0.38), bau = new THREE.BoxGeometry(0.8, 0.5, 0.6), tampa = new THREE.BoxGeometry(0.84, 0.14, 0.64);
     const nodes = Object.keys(POS).map(h => {
@@ -731,12 +736,12 @@
     function render() {
       sc = 0;
       if (T.fly) { const d = goal.clone().sub(ctl.target).multiplyScalar(0.12); ctl.target.add(d); cam.position.add(d); if (d.length() < 0.004) T.fly = false; else T.pedir(); }
-      const t = ctl.target, cx = lim(t.x, -9, 9), cz = lim(t.z, -9, 7.5);
+      const t = ctl.target, cx = lim(t.x, -16, 16), cz = lim(t.z, -18, 14);
       if (cx !== t.x || cz !== t.z) { cam.position.x += cx - t.x; cam.position.z += cz - t.z; t.x = cx; t.z = cz; }
       rd.render(scene, cam);
     }
     T = {
-      fly: false,
+      fly: false, mostrar: false,
       pedir() { if (!sc) sc = requestAnimationFrame(render); },
       resize() { const w = host.clientWidth || innerWidth, h = host.clientHeight || innerHeight; rd.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); this.pedir(); },
       foco(anim) {
@@ -754,6 +759,7 @@
           c.h.material = av ? hBlue : hGold; c.h.visible = av || (c.heart && m);
         });
         nodes.forEach(n => {
+          n.lb.visible = T.mostrar;
           if (!n.hex) { setLabel(n.lb, "Andarilho"); return; }
           const ok = e.reached.has(n.h), h = ok ? 1 : 0.7;
           n.hex.material = mt(ok ? (n.h.startsWith("Caixa") ? 0xc49a6c : BIOMA[n.h] || 0xa8761f) : 0x6f7a66, 0.6);
@@ -769,7 +775,7 @@
     window.addEventListener("resize", () => { if (modo3d) T.resize(); });
     let p0 = null;
     host.addEventListener("pointerdown", e => { p0 = { x: e.clientX, y: e.clientY }; });
-    host.addEventListener("pointerup", e => { if (p0 && Math.hypot(e.clientX - p0.x, e.clientY - p0.y) < 6) abrirPainel(null); p0 = null; });
+    host.addEventListener("pointerup", e => { if (p0 && Math.hypot(e.clientX - p0.x, e.clientY - p0.y) < 6) { abrirPainel(null); T.mostrar = !T.mostrar; nodes.forEach(n => { n.lb.visible = T.mostrar; }); T.pedir(); } p0 = null; });
   }
 
   // mensagens viram "toast" no mapa e somem sozinhas

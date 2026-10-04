@@ -79,6 +79,16 @@
     <ul id="conq" class="g"></ul>
     <h3>Caixas</h3>
     <ul id="cx" class="g"></ul>
+    <div id="cv">
+      <h3>Convidar</h3>
+      <div class="form">
+        <input id="cemail" type="email" placeholder="E-mail do convidado (opcional)">
+        <button id="cgerar">Gerar link de convite</button>
+      </div>
+      <ul id="clist"></ul>
+      <p id="cmem" style="font-size:.9rem"></p>
+    </div>
+    <button class="sec hide" id="sair">Sair desta campanha</button>
     <button class="sec" id="undo">Desfazer último</button>
     <button class="sec" id="back">Voltar</button>
   </section>
@@ -93,6 +103,11 @@
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const $ = id => document.getElementById(id);
 
+  (function () {
+    const t = new URLSearchParams(location.search).get("convite");
+    if (t) { try { localStorage.setItem("convite", t); } catch (e) {} history.replaceState(null, "", location.pathname); }
+  })();
+  const tokenGuardado = () => { try { return localStorage.getItem("convite"); } catch (e) { return null; } };
   let uid = null, camps = [], cur = null, order = [];
   const A = 56, H = 48.5, D0 = 15, MG = 4;
   const SEGS = [["Andarilho","Caixa 1",2,[0,1]],["Caixa 1","Caixa 2",5,[-1,0]],["Caixa 2","Circo",4,[0,1]],["Caixa 2","Armazém",4,[0,1]],["Circo","Cervo",6,[1,0]],["Cervo","Castelo",8,[1,0]],["Castelo","Fazenda",10,[1,0]],["Fazenda","Nuvens",10,[1,-1]],["Armazém","Túnel de Cereal",6,[-1,0]],["Túnel de Cereal","Túnel de Vila",8,[-1,0]],["Túnel de Vila","Túnel de Floresta",10,[-1,0]],["Túnel de Floresta","Nuvens",10,[-1,-1]],["Circo","Sinaleiro",6,[0,1]],["Armazém","Sinaleiro",6,[0,1]],["Sinaleiro","Pastora",8,[1,0]],["Pastora","Colina",10,[-1,0]],["Colina","Nuvens",10,[1,0]]];
@@ -149,13 +164,21 @@
   }
 
   async function render(session) {
-    if (!session) { uid = null; cur = null; show("out"); return; }
+    if (!session) { uid = null; cur = null; show("out"); if (tokenGuardado()) $("msg").textContent = "Você recebeu um convite! Entre com o Google pra aceitar."; return; }
     const u = session.user;
     uid = u.id;
     $("nome").textContent = (u.user_metadata && (u.user_metadata.name || u.user_metadata.full_name)) || u.email;
     if (cur) return;
+    const tk = tokenGuardado();
+    let aviso = "";
+    if (tk) {
+      try { localStorage.removeItem("convite"); } catch (e) {}
+      const { error } = await sb.rpc("accept_invite", { invite_token: tk });
+      aviso = error ? (/another email/.test(error.message) ? "Esse convite é de outro e-mail." : "Convite inválido ou expirado.") : "Você entrou na campanha!";
+    }
     show("in");
     await carregar();
+    if (aviso) $("msg").textContent = aviso;
   }
 
   async function carregar() {
@@ -188,6 +211,7 @@
     if (error) { $("msg").textContent = "Erro ao ler partidas: " + error.message; return; }
     plays = data;
     draw();
+    if (c.owner_id === uid) await carregarConvites();
   }
 
   function draw() {
@@ -227,6 +251,8 @@
     const l2 = document.createElement("p"); l2.textContent = "Desbloqueados: " + (desb.length ? desb.join(", ") : "nada ainda"); $("info").appendChild(l2);
     $("undo").classList.toggle("hide", !canEdit);
     $("rp").classList.toggle("hide", !canEdit);
+    $("cv").classList.toggle("hide", !canEdit);
+    $("sair").classList.toggle("hide", canEdit);
     if (canEdit && cred <= 0) { const l3 = document.createElement("p"); l3.textContent = plays.length ? "Sem círculos disponíveis. Registre uma nova partida." : "Registre uma partida pra ganhar círculos."; $("info").appendChild(l3); }
     const CONQ = ["Castelo","Circo","Nuvens","Cervo","Fazenda","Túnel de Floresta","Túnel de Cereal","Colina","Pastora","Sinaleiro","Túnel de Vila","Armazém"];
     const CX = ["Local Lanç. de Balões","Canteiro de Obras","Festival de Bandeiras","Cabana na Floresta","Coração Dourado","Porto","Festival da Colheita","Desejo do Coração","Locomotiva","Na Estrada p/o Sucesso","Corações Vermelhos","Navio","Estação de Trem","Torre de Vigia"];
@@ -270,6 +296,51 @@
     $("msg").textContent = "";
     draw();
   }
+  let convites = [];
+  const linkConvite = t => location.origin + location.pathname + "?convite=" + t;
+  async function copiar(txt) {
+    try { await navigator.clipboard.writeText(txt); $("msg").textContent = "Link copiado!"; }
+    catch (e) { prompt("Copie o link:", txt); }
+  }
+  function mostrarConvites() {
+    const ul = $("clist");
+    ul.innerHTML = "";
+    convites.forEach(cv => {
+      const li = document.createElement("li");
+      li.textContent = (cv.email || "Qualquer pessoa com o link") + " · expira em " + new Date(cv.expires_at).toLocaleDateString("pt-BR");
+      const b1 = document.createElement("button"); b1.className = "sec"; b1.style.cssText = "margin:.4rem .4rem 0 0;padding:.3rem .7rem;font-size:.8rem"; b1.textContent = "Copiar link"; b1.onclick = () => copiar(linkConvite(cv.token));
+      const b2 = document.createElement("button"); b2.className = "sec"; b2.style.cssText = b1.style.cssText; b2.textContent = "Revogar"; b2.onclick = () => revogar(cv);
+      li.appendChild(document.createElement("br")); li.appendChild(b1); li.appendChild(b2);
+      ul.appendChild(li);
+    });
+  }
+  async function carregarConvites() {
+    const r1 = await sb.from("campaign_invites").select("id,token,email,expires_at").eq("campaign_id", cur.id).gt("expires_at", new Date().toISOString()).order("created_at", { ascending: false });
+    if (r1.error) { $("msg").textContent = "Erro ao ler convites: " + r1.error.message; return; }
+    convites = r1.data; mostrarConvites();
+    const r2 = await sb.from("campaign_members").select("user_id").eq("campaign_id", cur.id);
+    $("cmem").textContent = r2.error ? "" : (r2.data.length + " convidado(s) na campanha.");
+  }
+  async function revogar(cv) {
+    if (!confirm("Revogar este convite? O link para de funcionar.")) return;
+    const { error } = await sb.from("campaign_invites").delete().eq("id", cv.id);
+    if (error) { $("msg").textContent = "Erro ao revogar: " + error.message; return; }
+    convites = convites.filter(x => x.id !== cv.id); mostrarConvites();
+  }
+  $("cgerar").onclick = async () => {
+    $("msg").textContent = "";
+    const em = $("cemail").value.trim();
+    const { data, error } = await sb.from("campaign_invites").insert({ campaign_id: cur.id, email: em || null }).select("id,token,email,expires_at").single();
+    if (error) { $("msg").textContent = "Erro ao gerar convite: " + error.message; return; }
+    convites.unshift(data); mostrarConvites(); $("cemail").value = "";
+    await copiar(linkConvite(data.token));
+  };
+  $("sair").onclick = async () => {
+    if (!confirm("Sair desta campanha? Você perde o acesso até receber outro convite.")) return;
+    const { error } = await sb.from("campaign_members").delete().eq("campaign_id", cur.id).eq("user_id", uid);
+    if (error) { $("msg").textContent = "Erro ao sair: " + error.message; return; }
+    cur = null; $("msg").textContent = ""; show("in"); await carregar();
+  };
   $("pont").oninput = () => {
     const v = parseInt($("pont").value, 10);
     $("prev").textContent = isNaN(v) || v < 0 ? "" : linha(v)[0] + " " + linha(v)[1] + ": " + linha(v)[2] + " círculo(s)";
